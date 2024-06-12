@@ -1,34 +1,33 @@
 {
-  "name": "forward-hime",
-  "description": "多群组消息互通",
-  "version": "0.0.1",
-  "main": "lib/index.js",
-  "typings": "lib/index.d.ts",
-  "files": [
-    "lib",
-    "dist",
-    "src"
-  ],
-  "license": "MIT",
-  "homepage": "https://github.com/Nigh/forward-hime",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Nigh/forward-hime.git"
-  },
-  "bugs": {
-    "url": "https://github.com/Nigh/forward-hime/issues"
-  },
-  "keywords": [
-    "chatbot",
-    "koishi",
-    "plugin",
-    "forward",
-    "message-forwarding"
-  ],
-  "peerDependencies": {
-    "koishi": "^4.17.5"
-  },
-  "koishi": {
-    "browser": true
-  }
+	"name": "koishi-plugin-forward-hime",
+	"description": "多群组消息互通",
+	"version": "0.0.1",
+	"main": "lib/index.js",
+	"typings": "lib/index.d.ts",
+	"files": [
+		"lib",
+		"dist"
+	],
+	"license": "MIT",
+	"homepage": "https://github.com/Nigh/forward-hime",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Nigh/forward-hime.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Nigh/forward-hime/issues"
+	},
+	"keywords": [
+		"chatbot",
+		"koishi",
+		"plugin",
+		"forward",
+		"message-forwarding"
+	],
+	"peerDependencies": {
+		"koishi": "^4.17.8"
+	},
+	"koishi": {
+		"browser": true
+	}
 }
