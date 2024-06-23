@@ -6,7 +6,7 @@ export default defineConfig({
   description: "Koishi plugin forward hime",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
-	logo: '/logo.png',
+	logo: './logo.png',
     nav: [
       { text: 'HOME', link: '/' },
     ],
