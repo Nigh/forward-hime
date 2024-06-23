@@ -1,0 +1,12 @@
+{
+  "name": "forward-hime",
+  "packageManager": "yarn@4.1.1",
+  "devDependencies": {
+    "vitepress": "^1.2.3"
+  },
+  "scripts": {
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview"
+  }
+}
