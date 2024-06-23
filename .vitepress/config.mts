@@ -29,4 +29,5 @@ export default defineConfig({
     ]
   },
   outDir: './docs',
+  base: '/forward-hime/'
 })

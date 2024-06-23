@@ -1,0 +1,1 @@
+import{_ as e,c as a,o,a1 as r}from"./chunks/framework.DtDg0SEP.js";const f=JSON.parse('{"title":"README","description":"","frontmatter":{"layout":"doc"},"headers":[],"relativePath":"README.md","filePath":"README.md"}'),t={name:"README.md"},c=r("",13),h=[c];function i(s,d,n,l,p,_){return o(),a("div",null,h)}const b=e(t,[["render",i]]);export{f as __pageData,b as default};
