@@ -11,7 +11,7 @@ function cqJsonTranslator(content: Element[], elem: Element) {
 		if (json.meta && json.meta.detail_1) {
 			if (json.meta.detail_1.preview) {
 				hit += 1;
-				content.push(h.image(json.meta.detail_1.preview));
+				content.push(h.image(json.meta.detail_1.preview, "image/jpeg"));
 			}
 			if (json.meta.detail_1.qqdocurl) {
 				hit += 1;
@@ -36,12 +36,19 @@ function Middleware(session: Session) {
 	];
 	if (platform === "QQ") {
 		for (const key in session.elements) {
-			if (session.elements[key].type === "forward") {
-				newContent.push(h("span", `[CQ:转发消息]`));
-			} else if (session.elements[key].type === "json") {
-				cqJsonTranslator(newContent, session.elements[key]);
-			} else {
-				newContent.push(session.elements[key]);
+			switch (session.elements[key].type) {
+				case "forward":
+					newContent.push(h("span", `[CQ:转发消息]`));
+					break;
+				case "json":
+					cqJsonTranslator(newContent, session.elements[key]);
+					break;
+				case "mface":
+					newContent.push(h.image(session.elements[key].attrs.url));
+					break;
+				default:
+					newContent.push(session.elements[key]);
+					break;
 			}
 		}
 		return {head: head, content: newContent};

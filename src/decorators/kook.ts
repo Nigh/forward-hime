@@ -7,7 +7,16 @@ const transparentPixel = Buffer.from(
 
 function Decorator({head, content}) {
 	let msg: Element[] = [];
-	msg = msg.concat(head, h("br"), content, h.image(transparentPixel, "image/gif"));
+	let hasImage = false;
+	for (const key in content) {
+		if (content[key].type === "image") {
+			hasImage = true;
+		}
+	}
+	msg = msg.concat(head, h("br"), content);
+	if (!hasImage) {
+		msg = msg.concat(h.image(transparentPixel, "image/gif"));
+	}
 	return msg;
 }
 

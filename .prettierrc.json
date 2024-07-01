@@ -6,7 +6,7 @@
 	"useTabs": true,
 	"singleQuote": false,
 	"bracketSpacing": false,
-	"endOfLine": "auto",
+	"endOfLine": "lf",
 	"arrowParens": "always",
 	"trailingComma": "all"
 }
