@@ -113,7 +113,7 @@ export async function MsgDecoratorFallback(session: Session, node: ForwardNode) 
 
 async function atTranslator(
 	session: Session,
-	node: ForwardNode,
+	_: ForwardNode,
 	{head, content}: ForwardMsg,
 ) {
 	const newMsg = await new Promise((resolve, reject) => {
