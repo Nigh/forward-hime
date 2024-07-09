@@ -24,6 +24,21 @@ function cqJsonTranslator(content: Element[], elem: Element) {
 	}
 }
 
+const IdNameCache: Map<string, string> = new Map();
+
+function getNameFromQQat(elem: Element) {
+	const name = elem.attrs.name;
+	if (name) {
+		return name;
+	}
+	const id = elem.attrs.id;
+	if (IdNameCache.has(id)) {
+		return IdNameCache.get(id);
+	} else {
+		return id;
+	}
+}
+
 function Middleware(session: Session) {
 	const platform = guessPlatform(session);
 
@@ -35,8 +50,14 @@ function Middleware(session: Session) {
 		h("span", `：`),
 	];
 	if (platform === "QQ") {
+		IdNameCache.set(session.userId, session.username);
 		for (const key in session.elements) {
 			switch (session.elements[key].type) {
+				case "at":
+					newContent.push(
+						h("span", `@${getNameFromQQat(session.elements[key])}`),
+					);
+					break;
 				case "forward":
 					newContent.push(h("span", `[CQ:转发消息]`));
 					break;
