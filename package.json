@@ -32,12 +32,11 @@
 		"message-forwarding"
 	],
 	"peerDependencies": {
-		"koishi": "^4.17.8"
+		"koishi": "^4.18.7"
 	},
 	"devDependencies": {
 		"@typescript-eslint/eslint-plugin": "^7.13.0",
 		"@typescript-eslint/parser": "^7.13.0",
-		"esbuild": "^0.25.9",
 		"eslint": "^9.4.0",
 		"eslint-config-prettier": "^9.1.0",
 		"eslint-plugin-prettier": "^5.1.3",
@@ -49,7 +48,6 @@
 	},
 	"scripts": {
 		"prepare": "husky",
-		"build": "rm -f tsconfig.tsbuildinfo && rm -rf lib && tsc -b && esbuild src/index.ts --bundle --platform=node --outfile=lib/index.js",
 		"eslint": "eslint . --ext .js,.jsx,.ts,.tsx",
 		"format": "prettier --write .",
 		"pub": "npm publish --access public"
