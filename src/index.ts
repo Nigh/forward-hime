@@ -33,8 +33,10 @@ import {
 	msgCacheFindByUUID,
 } from "./cache";
 
+import {decoratorInit} from "./decorator";
 export function apply(ctx: Context, cfg: ConfigSet) {
 	msgCacheInit(ctx, cfg);
+	decoratorInit(cfg);
 
 	ctx.on("message-created", async (session) => {
 		const hitGroup = [];
