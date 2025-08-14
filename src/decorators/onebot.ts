@@ -1,4 +1,5 @@
 import {Element, Session, h} from "koishi";
+import {defaultMiddleware} from "../decorator";
 
 function cqJsonTranslator(content: Element[], elem: Element) {
 	let json = JSON.parse(elem.attrs.data);
@@ -43,12 +44,7 @@ function Middleware(session: Session) {
 	const platform = guessPlatform(session);
 
 	let newContent: Element[] = [];
-	let head: Element[] = [
-		h("b", `${session.username}`),
-		h("span", " 转发自 "),
-		h("i", `${platform}`),
-		h("span", `：`),
-	];
+	let head: Element[] = defaultMiddleware(session).head;
 	if (platform === "QQ") {
 		IdNameCache.set(session.userId, session.username);
 		for (const key in session.elements) {
