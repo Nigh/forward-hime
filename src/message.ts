@@ -30,19 +30,34 @@ async function MessageSendWithDecorator(
 			}
 		})
 		.catch((error) => {
-			logger.error(`content: ${content}`);
+			logger.error(
+				`ERROR:<MessageSendWithDecorator ${node.Platform}> ctx=${ctx} ${error}`,
+			);
 			throw error;
 		});
 }
+
+function sessionTypeArray(session: Session) {
+	let contentTypes = "|";
+	session.elements.forEach((element) => {
+		contentTypes = contentTypes + element.type + "|";
+	});
+	return contentTypes;
+}
+
 export async function MessageForward(ctx: Context, node: ForwardNode, session: Session) {
 	if (!botExistsCheck(ctx, node)) {
 		return;
 	}
 	MessageSendWithDecorator(ctx, node, session, MsgDecorator).catch((error) => {
-		logger.error(`ERROR:<MessageSend ${node.Platform}> ${error}`);
+		logger.error(
+			`ERROR:<MessageSend ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${error}`,
+		);
 		MessageSendWithDecorator(ctx, node, session, MsgDecoratorFallback).catch(
 			(error) => {
-				logger.error(`ERROR:<MessageSendFallback ${node.Platform}> ${error}`);
+				logger.error(
+					`ERROR:<MessageSendFallback ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${error}`,
+				);
 			},
 		);
 	});

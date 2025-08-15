@@ -42,9 +42,10 @@ function getNameFromQQat(elem: Element) {
 
 function Middleware(session: Session) {
 	const platform = guessPlatform(session);
-
+	let sessionTemp = session;
+	sessionTemp.platform = platform;
+	let head: Element[] = defaultMiddleware(sessionTemp).head;
 	let newContent: Element[] = [];
-	let head: Element[] = defaultMiddleware(session).head;
 	if (platform === "QQ") {
 		IdNameCache.set(session.userId, session.username);
 		for (const key in session.elements) {

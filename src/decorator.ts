@@ -111,7 +111,7 @@ function defaultDecoratorFallback({head, content}: ForwardMsg) {
 			newContent.push(content[key]);
 		}
 	}
-	msg = msg.concat(head, h("br"), newContent);
+	msg = msg.concat(head, newContent);
 	return msg;
 }
 export async function MsgDecoratorFallback(session: Session, node: ForwardNode) {
