@@ -1,8 +1,9 @@
 import {Context, Session} from "koishi";
 import {logger} from "./logger";
 import {ForwardNode} from "./config";
-import {MsgDecorator, MsgDecoratorFallback} from "./decorator";
+import {MsgDecorator, MsgDecoratorFallback, MsgDecoratorFallbackReason} from "./decorator";
 import {MsgCache, msgCache} from "./cache";
+import {MediaRelayError} from "./relay";
 
 async function MessageSendWithDecorator(
 	ctx: Context,
@@ -53,7 +54,19 @@ export async function MessageForward(ctx: Context, node: ForwardNode, session: S
 		logger.error(
 			`ERROR:<MessageSend ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${error}`,
 		);
-		MessageSendWithDecorator(ctx, node, session, MsgDecoratorFallback).catch(
+		const readableReason =
+			error instanceof MediaRelayError
+				? `[转发失败] ${error.userMessage} `
+				: undefined;
+		const fallbackDeco = readableReason
+			? (fallbackSession: Session, fallbackNode: ForwardNode) =>
+					MsgDecoratorFallbackReason(
+						fallbackSession,
+						fallbackNode,
+						readableReason,
+					)
+			: MsgDecoratorFallback;
+		MessageSendWithDecorator(ctx, node, session, fallbackDeco).catch(
 			(error) => {
 				logger.error(
 					`ERROR:<MessageSendFallback ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${error}`,

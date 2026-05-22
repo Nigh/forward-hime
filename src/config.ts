@@ -13,6 +13,12 @@ export interface ConfigSet {
 		Newline: boolean;
 	};
 	DefaultFallbackMsgPrefix: string;
+	MediaRelay: {
+		Enabled: boolean;
+		CacheMinutes: number;
+		RequestTimeoutSec: number;
+		MaxFileSizeMB: number;
+	};
 	CacheTimeout: number;
 	ForwardGroups: {
 		Nodes: ForwardNode[];
@@ -38,6 +44,26 @@ export const createConfig = () =>
 			DefaultFallbackMsgPrefix: Schema.string()
 				.description("默认Fallback消息前缀")
 				.default("[消息降级] "),
+			MediaRelay: Schema.object({
+				Enabled: Schema.boolean()
+					.description("启用媒体中转（下载后再转发）")
+					.default(true),
+				CacheMinutes: Schema.number()
+					.description("媒体暂存时间（分钟）")
+					.default(10)
+					.min(1)
+					.max(180),
+				RequestTimeoutSec: Schema.number()
+					.description("媒体下载超时时间（秒）")
+					.default(15)
+					.min(3)
+					.max(120),
+				MaxFileSizeMB: Schema.number()
+					.description("允许中转的媒体最大大小（MB）")
+					.default(20)
+					.min(1)
+					.max(200),
+			}).description("媒体中转"),
 		}).description("转发格式"),
 		Schema.object({
 			ForwardGroups: Schema.array(

@@ -2,6 +2,7 @@ import {Session, Element, h} from "koishi";
 import {ForwardNode} from "./config";
 import {MsgUUIDFromSession} from "./message";
 import {ConfigSet} from "./config";
+import {relayForwardContent, relayInit} from "./relay";
 import * as decorator from "./decorators";
 interface ForwardMsg {
 	head: Element[];
@@ -20,6 +21,7 @@ export function decoratorInit(cfg: ConfigSet) {
 	defaultPrefix = cfg.DefaultDecorator.Prefix;
 	defaultPrefixNewline = cfg.DefaultDecorator.Newline;
 	defaultFallback = cfg.DefaultFallbackMsgPrefix;
+	relayInit(cfg);
 }
 
 function renderTemplate(template: string, data: Record<string, any>): string {
@@ -93,6 +95,10 @@ export async function MsgDecorator(session: Session, node: ForwardNode) {
 	for (const fn of localDecorators) {
 		elems = (await fn(session, node, elems)) as ForwardMsg;
 	}
+	elems = {
+		head: elems.head,
+		content: await relayForwardContent(elems.content),
+	};
 	if (_platform_out && typeof _platform_out.Decorator === "function") {
 		return _platform_out.Decorator(elems);
 	} else {
@@ -100,10 +106,10 @@ export async function MsgDecorator(session: Session, node: ForwardNode) {
 	}
 }
 
-function defaultDecoratorFallback({head, content}: ForwardMsg) {
+function defaultDecoratorFallback({head, content}: ForwardMsg, reason?: string) {
 	let msg: Element[] = [];
 	let newContent: Element[] = [];
-	newContent.push(h("span", defaultFallback));
+	newContent.push(h("span", reason || defaultFallback));
 	for (const key in content) {
 		if (["img", "audio", "video", "file"].includes(content[key].type)) {
 			newContent.push(h("span", ` [${content[key].type}] `));
@@ -121,6 +127,19 @@ export async function MsgDecoratorFallback(session: Session, node: ForwardNode) 
 		elems = (await fn(session, node, elems)) as ForwardMsg;
 	}
 	return defaultDecoratorFallback(elems);
+}
+
+export async function MsgDecoratorFallbackReason(
+	session: Session,
+	node: ForwardNode,
+	reason: string,
+) {
+	let elems: ForwardMsg = {head: [], content: []};
+	elems = defaultMiddleware(session);
+	for (const fn of localDecorators) {
+		elems = (await fn(session, node, elems)) as ForwardMsg;
+	}
+	return defaultDecoratorFallback(elems, reason);
 }
 
 async function atTranslator(
