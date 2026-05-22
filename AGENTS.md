@@ -1,0 +1,52 @@
+# AGENTS Guide for `forward-hime`
+
+## Project Overview
+- This repository is a Koishi plugin: `koishi-plugin-forward-hime`.
+- Main purpose: forward messages across multiple platform/group nodes inside configured forward groups.
+- Source code lives in `src/`, declarations are emitted to `lib/`.
+- Entry point: `src/index.ts` (`apply(ctx, cfg)` registers message event handlers).
+
+## Key Modules
+- `src/index.ts`: plugin bootstrap, event listeners (`message-created`, `message-deleted`, `message-updated`).
+- `src/config.ts`: Koishi `Schema` config and `ConfigSet` type.
+- `src/message.ts`: forwarding/deleting/editing message helpers, decorator fallback behavior.
+- `src/cache.ts`: message mapping cache used for cross-platform delete/reply related flows.
+- `src/decorator.ts` + `src/decorators/*`: message decoration per platform.
+
+## Local Commands
+- Install deps: `npm install`
+- Lint: `npm run eslint`
+- Format: `npm run format`
+- Type declaration build check: `npx tsc -p tsconfig.json`
+
+## Coding Conventions
+- Language: TypeScript (ES modules).
+- Formatting is enforced by Prettier:
+  - tabs enabled (`useTabs: true`)
+  - `tabWidth: 4`
+  - semicolons required
+  - double quotes preferred
+  - trailing commas enabled
+- Keep import ordering clean and avoid unused imports.
+- Preserve existing naming and config field style in public config objects (e.g. `ForwardGroups`, `BotID`, `Guild`, `Platform`) to avoid breaking user configuration.
+
+## Change Guidelines
+- Prefer minimal, targeted edits; do not refactor unrelated files.
+- Keep plugin behavior backward-compatible unless explicitly requested.
+- When touching forwarding logic:
+  - keep fallback path (`MsgDecoratorFallback`) intact;
+  - do not remove cache writes that are required for cross-platform delete/trace logic.
+- When touching config schema:
+  - keep existing field names and defaults unless migration is clearly handled.
+
+## Validation Checklist
+- Run `npm run eslint`.
+- Run `npx tsc -p tsconfig.json` to ensure declarations still emit correctly.
+- If behavior changes in forwarding logic, manually verify:
+  - one source node message is forwarded to sibling nodes in the same group;
+  - delete propagation still works when cache is available.
+
+## Commit / PR Notes
+- Keep commit scope focused and explain user-visible behavior changes.
+- Include verification commands in PR description.
+- Do not include secrets or environment-specific values in commits.
