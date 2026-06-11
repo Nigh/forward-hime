@@ -1,7 +1,12 @@
 import {Context, Session} from "koishi";
+
 import {logger} from "./logger";
 import {ForwardNode} from "./config";
-import {MsgDecorator, MsgDecoratorFallback, MsgDecoratorFallbackReason} from "./decorator";
+import {
+	MsgDecorator,
+	MsgDecoratorFallback,
+	MsgDecoratorFallbackReason,
+} from "./decorator";
 import {MsgCache, msgCache} from "./cache";
 import {MediaRelayError} from "./relay";
 
@@ -13,6 +18,7 @@ async function MessageSendWithDecorator(
 ) {
 	const uuid = session.channelId + ":" + session.messageId;
 	const content = await Deco(session, node);
+
 	await ctx.bots[`${node.Platform}:${node.BotID}`]
 		.sendMessage(node.Guild, content)
 		.then((res) => {
@@ -23,6 +29,7 @@ async function MessageSendWithDecorator(
 				msgid: res[0],
 				uuid,
 			};
+
 			if (!mc.msgid) {
 				throw new Error(`Empty Message ID`);
 			} else {
@@ -40,9 +47,11 @@ async function MessageSendWithDecorator(
 
 function sessionTypeArray(session: Session) {
 	let contentTypes = "|";
+
 	session.elements.forEach((element) => {
 		contentTypes = contentTypes + element.type + "|";
 	});
+
 	return contentTypes;
 }
 
@@ -66,13 +75,12 @@ export async function MessageForward(ctx: Context, node: ForwardNode, session: S
 						readableReason,
 					)
 			: MsgDecoratorFallback;
-		MessageSendWithDecorator(ctx, node, session, fallbackDeco).catch(
-			(error) => {
-				logger.error(
-					`ERROR:<MessageSendFallback ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${error}`,
-				);
-			},
-		);
+
+		MessageSendWithDecorator(ctx, node, session, fallbackDeco).catch((error) => {
+			logger.error(
+				`ERROR:<MessageSendFallback ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${error}`,
+			);
+		});
 	});
 }
 
@@ -89,7 +97,7 @@ export async function MessageDelete(ctx: Context, msg: MsgCache) {
 		});
 }
 
-export async function MessageEdit(ctx: Context, node: ForwardNode, session: Session) {
+export async function MessageEdit(ctx: Context, node: ForwardNode, _session: Session) {
 	if (!botExistsCheck(ctx, node)) {
 		return;
 	}
@@ -107,8 +115,10 @@ export async function MessageEdit(ctx: Context, node: ForwardNode, session: Sess
 function botExistsCheck(ctx: Context, node: ForwardNode) {
 	if (ctx.bots[`${node.Platform}:${node.BotID}`] == undefined) {
 		logger.error(`ERROR:<BOT not Exist> ${node.Platform}:${node.BotID}`);
+
 		return false;
 	}
+
 	return true;
 }
 

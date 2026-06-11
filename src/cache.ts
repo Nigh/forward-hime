@@ -1,5 +1,7 @@
 import {Context} from "koishi";
-import {ConfigSet} from "./config";
+import {} from "@koishijs/cache";
+
+import {ConfigSet, ForwardNode} from "./config";
 import {logger} from "./logger";
 
 export interface MsgCache {
@@ -12,7 +14,6 @@ export interface MsgCache {
 	uuid: string;
 }
 
-import {} from "@koishijs/cache";
 declare module "@koishijs/cache" {
 	interface Tables {
 		msgCache: MsgCache;
@@ -20,10 +21,12 @@ declare module "@koishijs/cache" {
 }
 let ctx;
 let cacheTimeout = 86400 * 1000;
+
 function cacheNotEnabled() {
 	if (!ctx.cache) {
 		return true;
 	}
+
 	return false;
 }
 export function msgCacheInit(context: Context, cfg: ConfigSet) {
@@ -35,6 +38,7 @@ export async function msgCache(mc: MsgCache) {
 		return;
 	}
 	const key = mc.guild + ":" + mc.msgid;
+
 	logger.debug(`[message-cache] ${mc.platform} ${key}`);
 	await ctx.cache.set("msgCache", key, mc, cacheTimeout);
 }
@@ -50,6 +54,7 @@ export async function msgCacheFindByKey(key: string) {
 	if (cacheNotEnabled()) {
 		return;
 	}
+
 	return await ctx.cache.get("msgCache", key);
 }
 
@@ -59,21 +64,23 @@ export async function msgCacheFindByUUID(uuid: string) {
 	}
 	let caches = await ctx.cache.entries("msgCache");
 	let result = [];
+
 	for await (const item of caches) {
 		if (item[1].uuid === uuid) {
 			result.push(item);
 		}
 	}
+
 	return result;
 }
 
-import {ForwardNode} from "./config";
 export async function msgCacheGetLocalIDByUUID(node: ForwardNode, uuid: string) {
 	if (cacheNotEnabled()) {
 		return;
 	}
 
 	let caches = await ctx.cache.entries("msgCache");
+
 	for await (const item of caches) {
 		if (
 			item[1].uuid === uuid &&

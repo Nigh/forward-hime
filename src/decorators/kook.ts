@@ -1,5 +1,6 @@
-import {Element, h} from "koishi";
 import {Buffer} from "buffer";
+
+import {Element, h} from "koishi";
 const transparentPixel = Buffer.from(
 	"R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==",
 	"base64",
@@ -8,6 +9,7 @@ const transparentPixel = Buffer.from(
 function Decorator({head, content}) {
 	let msg: Element[] = [];
 	let hasImage = false;
+
 	for (const key in content) {
 		if (content[key].type === "image") {
 			hasImage = true;
@@ -17,6 +19,7 @@ function Decorator({head, content}) {
 	if (!hasImage) {
 		msg = msg.concat(h.image(transparentPixel, "image/gif"));
 	}
+
 	return msg;
 }
 
