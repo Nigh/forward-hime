@@ -1,8 +1,13 @@
+/* eslint-disable import/order -- circular dependency with ./message */
 import {Session, Element, h} from "koishi";
-import {ForwardNode} from "./config";
-import {MsgUUIDFromSession} from "./message";
-import {ConfigSet} from "./config";
+
+import {msgCacheFindByKey, msgCacheGetLocalIDByUUID} from "./cache";
+import {ConfigSet, ForwardNode} from "./config";
 import * as decorator from "./decorators";
+import {logger} from "./logger";
+import {MsgUUIDFromSession} from "./message";
+import {relayForwardContent, relayInit} from "./relay";
+/* eslint-enable import/order */
 interface ForwardMsg {
 	head: Element[];
 	content: Element[];
@@ -16,10 +21,12 @@ interface FMsgCache {
 let defaultPrefix = "";
 let defaultFallback = "";
 let defaultPrefixNewline = true;
+
 export function decoratorInit(cfg: ConfigSet) {
 	defaultPrefix = cfg.DefaultDecorator.Prefix;
 	defaultPrefixNewline = cfg.DefaultDecorator.Newline;
 	defaultFallback = cfg.DefaultFallbackMsgPrefix;
+	relayInit(cfg);
 }
 
 function renderTemplate(template: string, data: Record<string, any>): string {
@@ -30,21 +37,26 @@ function renderTemplate(template: string, data: Record<string, any>): string {
 
 export function defaultDecorator({head, content}: ForwardMsg) {
 	let msg: Element[] = [];
+
 	msg = msg.concat(head, content);
+
 	return msg;
 }
 
 export function defaultMiddleware(session: Session) {
 	let head: Element[] = [h("span", renderTemplate(defaultPrefix, session))];
+
 	if (defaultPrefixNewline) {
 		head.push(h("br"));
 	}
+
 	return {head: head, content: session.elements} as ForwardMsg;
 }
 
 const localDecorators = [atTranslator, quoteTranslator];
 
 let msgMiddleCache: FMsgCache[] = [];
+
 function msgMiddleCacheAppend(msg: FMsgCache) {
 	msgMiddleCache.push(msg);
 	if (msgMiddleCache.length > 16) {
@@ -58,22 +70,26 @@ function msgMiddleCacheFind(uuid: string) {
 			return item.msg;
 		}
 	}
+
 	return null;
 }
 
 function MsgToMiddleware(session: Session) {
 	let elems: ForwardMsg = {head: [], content: []};
 	let _platform_in = decorator[session.platform];
+
 	if (_platform_in && typeof _platform_in.Middleware === "function") {
 		elems = _platform_in.Middleware(session);
 	} else {
 		elems = defaultMiddleware(session);
 	}
+
 	return elems;
 }
 
 export async function MsgMiddlewareCache(session: Session) {
 	let elems: ForwardMsg = MsgToMiddleware(session);
+
 	msgMiddleCacheAppend({UUID: MsgUUIDFromSession(session), msg: elems});
 	logger.debug(`[msgMiddleCache] CACHED`);
 }
@@ -82,6 +98,7 @@ export async function MsgDecorator(session: Session, node: ForwardNode) {
 	let _platform_out = decorator[node.Platform];
 
 	let elemCache = msgMiddleCacheFind(MsgUUIDFromSession(session));
+
 	if (elemCache) {
 		logger.debug(`[msgMiddleCache] HIT`);
 		elems = elemCache;
@@ -93,6 +110,10 @@ export async function MsgDecorator(session: Session, node: ForwardNode) {
 	for (const fn of localDecorators) {
 		elems = (await fn(session, node, elems)) as ForwardMsg;
 	}
+	elems = {
+		head: elems.head,
+		content: await relayForwardContent(elems.content),
+	};
 	if (_platform_out && typeof _platform_out.Decorator === "function") {
 		return _platform_out.Decorator(elems);
 	} else {
@@ -100,10 +121,11 @@ export async function MsgDecorator(session: Session, node: ForwardNode) {
 	}
 }
 
-function defaultDecoratorFallback({head, content}: ForwardMsg) {
+function defaultDecoratorFallback({head, content}: ForwardMsg, reason?: string) {
 	let msg: Element[] = [];
 	let newContent: Element[] = [];
-	newContent.push(h("span", defaultFallback));
+
+	newContent.push(h("span", reason || defaultFallback));
 	for (const key in content) {
 		if (["img", "audio", "video", "file"].includes(content[key].type)) {
 			newContent.push(h("span", ` [${content[key].type}] `));
@@ -112,15 +134,33 @@ function defaultDecoratorFallback({head, content}: ForwardMsg) {
 		}
 	}
 	msg = msg.concat(head, newContent);
+
 	return msg;
 }
 export async function MsgDecoratorFallback(session: Session, node: ForwardNode) {
 	let elems: ForwardMsg = {head: [], content: []};
+
 	elems = defaultMiddleware(session);
 	for (const fn of localDecorators) {
 		elems = (await fn(session, node, elems)) as ForwardMsg;
 	}
+
 	return defaultDecoratorFallback(elems);
+}
+
+export async function MsgDecoratorFallbackReason(
+	session: Session,
+	node: ForwardNode,
+	reason: string,
+) {
+	let elems: ForwardMsg = {head: [], content: []};
+
+	elems = defaultMiddleware(session);
+	for (const fn of localDecorators) {
+		elems = (await fn(session, node, elems)) as ForwardMsg;
+	}
+
+	return defaultDecoratorFallback(elems, reason);
 }
 
 async function atTranslator(
@@ -128,10 +168,12 @@ async function atTranslator(
 	_: ForwardNode,
 	{head, content}: ForwardMsg,
 ) {
-	const newMsg = await new Promise((resolve, reject) => {
+	const newMsg = await new Promise((resolve) => {
 		let newContent: Element[] = [];
+
 		for (const key in content) {
 			const element = content[key];
+
 			if (element.type === "at") {
 				if (element.attrs.id !== session.selfId) {
 					// Note: onebot-qq at 无昵称
@@ -145,11 +187,10 @@ async function atTranslator(
 		}
 		resolve({head: head, content: newContent} as ForwardMsg);
 	});
+
 	return newMsg;
 }
 
-import {logger} from "./logger";
-import {msgCacheFindByKey, msgCacheGetLocalIDByUUID} from "./cache";
 async function quoteTranslator(
 	session: Session,
 	node: ForwardNode,
@@ -160,14 +201,18 @@ async function quoteTranslator(
 	}
 	const key = session.channelId + ":" + session.quote.id;
 	const cache = await msgCacheFindByKey(key);
+
 	if (cache) {
 		let msgid = await msgCacheGetLocalIDByUUID(node, cache.uuid);
+
 		if (msgid) {
 			let newHead = [h("quote", {id: msgid})].concat(head);
+
 			return {head: newHead, content: content} as ForwardMsg;
 		} else {
 			logger.error(`[msgCacheGetLocalIDByUUID] ${cache.uuid} not found`);
 		}
 	}
+
 	return {head: head, content: content} as ForwardMsg;
 }

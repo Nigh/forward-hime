@@ -1,8 +1,16 @@
 import {Context} from "koishi";
+
+import {
+	msgCache,
+	msgCacheInit,
+	msgCacheDelete,
+	msgCacheFindByKey,
+	msgCacheFindByUUID,
+} from "./cache";
 import {createConfig, ConfigSet} from "./config";
+import {MsgMiddlewareCache, decoratorInit} from "./decorator";
 import {logger} from "./logger";
-import {MessageForward, MessageDelete, MsgUUIDFromSession, MessageEdit} from "./message";
-import {MsgMiddlewareCache} from "./decorator";
+import {MessageForward, MessageDelete, MsgUUIDFromSession} from "./message";
 
 export const name = `forward hime - 转发姬`;
 export const usage = `
@@ -24,24 +32,16 @@ export const inject = {
 
 export const Config = createConfig();
 
-import {
-	MsgCache,
-	msgCache,
-	msgCacheInit,
-	msgCacheDelete,
-	msgCacheFindByKey,
-	msgCacheFindByUUID,
-} from "./cache";
-
-import {decoratorInit} from "./decorator";
 export function apply(ctx: Context, cfg: ConfigSet) {
 	msgCacheInit(ctx, cfg);
 	decoratorInit(cfg);
 
 	ctx.on("message-created", async (session) => {
 		const hitGroup = [];
+
 		for (const g in cfg.ForwardGroups) {
 			const group = cfg.ForwardGroups[g];
+
 			for (const k in group.Nodes) {
 				if (
 					group.Nodes[k].Guild === session.channelId &&
@@ -57,6 +57,7 @@ export function apply(ctx: Context, cfg: ConfigSet) {
 						session.channelId + ":" + session.messageId,
 					);
 					let uuid = MsgUUIDFromSession(session);
+
 					msgCache({
 						platform: session.platform,
 						bot: group.Nodes[k].BotID,
@@ -74,6 +75,7 @@ export function apply(ctx: Context, cfg: ConfigSet) {
 		}
 		for (const g in hitGroup) {
 			const group = cfg.ForwardGroups[hitGroup[g]];
+
 			for (const k in group.Nodes) {
 				if (group.Nodes[k].Guild !== session.channelId) {
 					MessageForward(ctx, group.Nodes[k], session);
@@ -84,6 +86,7 @@ export function apply(ctx: Context, cfg: ConfigSet) {
 	// Note: telegram目前未返回删除事件
 	ctx.on("message-deleted", async (session) => {
 		const cacheKey = session.channelId + ":" + session.messageId;
+
 		logger.debug("[message-deleted]", cacheKey);
 
 		msgCacheFindByKey(cacheKey).then((res) => {
@@ -91,6 +94,7 @@ export function apply(ctx: Context, cfg: ConfigSet) {
 				logger.debug("[msgCacheFindByKey]", res);
 				msgCacheDelete(cacheKey);
 				const uuid = res.uuid;
+
 				msgCacheFindByUUID(uuid).then((res) => {
 					if (res) {
 						for (const k in res) {

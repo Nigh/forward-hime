@@ -1,9 +1,11 @@
 import {Element, Session, h} from "koishi";
+
 import {defaultMiddleware} from "../decorator";
 
 function cqJsonTranslator(content: Element[], elem: Element) {
 	let json = JSON.parse(elem.attrs.data);
 	let hit = 0;
+
 	if (json) {
 		if (json.prompt) {
 			hit += 1;
@@ -29,10 +31,12 @@ const IdNameCache: Map<string, string> = new Map();
 
 function getNameFromQQat(elem: Element) {
 	const name = elem.attrs.name;
+
 	if (name) {
 		return name;
 	}
 	const id = elem.attrs.id;
+
 	if (IdNameCache.has(id)) {
 		return IdNameCache.get(id);
 	} else {
@@ -43,9 +47,11 @@ function getNameFromQQat(elem: Element) {
 function Middleware(session: Session) {
 	const platform = guessPlatform(session);
 	let sessionTemp = session;
+
 	sessionTemp.platform = platform;
 	let head: Element[] = defaultMiddleware(sessionTemp).head;
 	let newContent: Element[] = [];
+
 	if (platform === "QQ") {
 		IdNameCache.set(session.userId, session.username);
 		for (const key in session.elements) {
@@ -69,8 +75,10 @@ function Middleware(session: Session) {
 					break;
 			}
 		}
+
 		return {head: head, content: newContent};
 	}
+
 	return {head: head, content: session.elements};
 }
 
@@ -80,6 +88,7 @@ function guessPlatform(session: Session) {
 			return "QQ";
 		}
 	}
+
 	return session.platform;
 }
 

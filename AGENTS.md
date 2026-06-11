@@ -3,7 +3,7 @@
 ## Project Overview
 - This repository is a Koishi plugin: `koishi-plugin-forward-hime`.
 - Main purpose: forward messages across multiple platform/group nodes inside configured forward groups.
-- Source code lives in `src/`, declarations are emitted to `lib/`.
+- Source code lives in `src/`. Release build: `npm run build` (tsc declarations + esbuild bundle to `lib/index.js`, matching npm layout).
 - Entry point: `src/index.ts` (`apply(ctx, cfg)` registers message event handlers).
 
 ## Key Modules
@@ -38,6 +38,16 @@
   - do not remove cache writes that are required for cross-platform delete/trace logic.
 - When touching config schema:
   - keep existing field names and defaults unless migration is clearly handled.
+
+## Release (npm via GitHub Actions)
+
+Trusted Publishing is configured on npm; pushing a semver tag publishes from `.github/workflows/release.yml`.
+
+1. Bump `package.json` `version` (e.g. `1.4.0-alpha.1` for production alpha tests).
+2. Commit, then tag and push: `git tag v1.4.0-alpha.0 && git push origin v1.4.0-alpha.0` (tag must match `v*.*.*`).
+3. CI runs lint/tsc, then `npm publish` with provenance in the `npm-publish` environment.
+4. Prerelease versions (`1.4.0-alpha.0`) publish to dist-tag `alpha` (from the prerelease id); stable versions update `latest`.
+5. Install in production: `npm i koishi-plugin-forward-hime@1.4.0-alpha.0` or `@alpha`.
 
 ## Validation Checklist
 - Run `npm run eslint`.
