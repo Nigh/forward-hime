@@ -80,13 +80,3 @@ jobs:
           else
             npm publish --access public
           fi
-
-      - name: Deprecate broken alpha builds
-        if: steps.dist.outputs.prerelease == 'true'
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          for OLD in 1.4.0-alpha.0 1.4.0-alpha.1; do
-            if [ "$VERSION" != "$OLD" ]; then
-              npm deprecate "koishi-plugin-forward-hime@${OLD}" "Broken on Koishi; upgrade to ${VERSION} or later." || true
-            fi
-          done
