@@ -1,6 +1,6 @@
 import {Element, Session, h} from "koishi";
 
-import {defaultMiddleware} from "../decorator.js";
+import {defaultMiddleware} from "../decorator";
 
 function cqJsonTranslator(content: Element[], elem: Element) {
 	let json = JSON.parse(elem.attrs.data);

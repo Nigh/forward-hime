@@ -6,11 +6,11 @@ import {
 	msgCacheDelete,
 	msgCacheFindByKey,
 	msgCacheFindByUUID,
-} from "./cache.js";
-import {createConfig, ConfigSet} from "./config.js";
-import {MsgMiddlewareCache, decoratorInit} from "./decorator.js";
-import {logger} from "./logger.js";
-import {MessageForward, MessageDelete, MsgUUIDFromSession} from "./message.js";
+} from "./cache";
+import {createConfig, ConfigSet} from "./config";
+import {MsgMiddlewareCache, decoratorInit} from "./decorator";
+import {logger} from "./logger";
+import {MessageForward, MessageDelete, MsgUUIDFromSession} from "./message";
 
 export const name = `forward hime - 转发姬`;
 export const usage = `

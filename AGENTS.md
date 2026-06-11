@@ -3,7 +3,7 @@
 ## Project Overview
 - This repository is a Koishi plugin: `koishi-plugin-forward-hime`.
 - Main purpose: forward messages across multiple platform/group nodes inside configured forward groups.
-- Source code lives in `src/`, build output is emitted to `lib/` (`npx tsc -p tsconfig.json`).
+- Source code lives in `src/`. Release build: `npm run build` (tsc declarations + esbuild bundle to `lib/index.js`, matching npm layout).
 - Entry point: `src/index.ts` (`apply(ctx, cfg)` registers message event handlers).
 
 ## Key Modules

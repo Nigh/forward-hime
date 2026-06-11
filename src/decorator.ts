@@ -1,12 +1,12 @@
 /* eslint-disable import/order -- circular dependency with ./message */
 import {Session, Element, h} from "koishi";
 
-import {msgCacheFindByKey, msgCacheGetLocalIDByUUID} from "./cache.js";
-import {ConfigSet, ForwardNode} from "./config.js";
-import * as decorator from "./decorators/index.js";
-import {logger} from "./logger.js";
-import {MsgUUIDFromSession} from "./message.js";
-import {relayForwardContent, relayInit} from "./relay.js";
+import {msgCacheFindByKey, msgCacheGetLocalIDByUUID} from "./cache";
+import {ConfigSet, ForwardNode} from "./config";
+import * as decorator from "./decorators";
+import {logger} from "./logger";
+import {MsgUUIDFromSession} from "./message";
+import {relayForwardContent, relayInit} from "./relay";
 /* eslint-enable import/order */
 interface ForwardMsg {
 	head: Element[];
