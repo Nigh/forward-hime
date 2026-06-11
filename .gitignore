@@ -19,5 +19,4 @@ tsconfig.tsbuildinfo
 
 .yarn
 yarn.lock
-package-lock.json
 .yarnrc.yml

@@ -6,7 +6,6 @@
 		"target": "es2022",
 		"module": "esnext",
 		"declaration": true,
-		"emitDeclarationOnly": true,
 		"composite": true,
 		"incremental": true,
 		"skipLibCheck": true,
@@ -14,7 +13,7 @@
 		"moduleResolution": "bundler",
 		"jsx": "react-jsx",
 		"jsxImportSource": "@satorijs/element",
-		"types": ["node", "yml-register/types"]
+		"types": ["node"]
 	},
 	"include": ["src"]
 }
