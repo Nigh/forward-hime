@@ -1,14 +1,14 @@
 import {Context, Session} from "koishi";
 
-import {logger} from "./logger";
-import {ForwardNode} from "./config";
+import {logger} from "./logger.js";
+import {ForwardNode} from "./config.js";
 import {
 	MsgDecorator,
 	MsgDecoratorFallback,
 	MsgDecoratorFallbackReason,
-} from "./decorator";
-import {MsgCache, msgCache} from "./cache";
-import {MediaRelayError} from "./relay";
+} from "./decorator.js";
+import {MsgCache, msgCache} from "./cache.js";
+import {MediaRelayError} from "./relay.js";
 
 async function MessageSendWithDecorator(
 	ctx: Context,

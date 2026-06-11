@@ -1,8 +1,8 @@
 import {Context} from "koishi";
 import {} from "@koishijs/cache";
 
-import {ConfigSet, ForwardNode} from "./config";
-import {logger} from "./logger";
+import {ConfigSet, ForwardNode} from "./config.js";
+import {logger} from "./logger.js";
 
 export interface MsgCache {
 	platform: string;

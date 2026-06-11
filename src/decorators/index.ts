@@ -1,2 +1,2 @@
-export {default as kook} from "./kook";
-export {default as onebot} from "./onebot";
+export {default as kook} from "./kook.js";
+export {default as onebot} from "./onebot.js";

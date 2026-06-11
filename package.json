@@ -1,11 +1,12 @@
 {
 	"name": "koishi-plugin-forward-hime",
 	"description": "多群组消息互通",
-	"version": "1.4.0-alpha.0",
+	"version": "1.4.0-alpha.1",
 	"author": {
 		"name": "xianii",
 		"email": "jiyucheng007@gmail.com"
 	},
+	"type": "module",
 	"main": "lib/index.js",
 	"typings": "lib/index.d.ts",
 	"files": [

@@ -1,10 +1,12 @@
 /* eslint-disable import/order -- circular dependency with ./message */
 import {Session, Element, h} from "koishi";
 
-import {ConfigSet, ForwardNode} from "./config";
-import * as decorator from "./decorators";
-import {MsgUUIDFromSession} from "./message";
-import {relayForwardContent, relayInit} from "./relay";
+import {msgCacheFindByKey, msgCacheGetLocalIDByUUID} from "./cache.js";
+import {ConfigSet, ForwardNode} from "./config.js";
+import * as decorator from "./decorators/index.js";
+import {logger} from "./logger.js";
+import {MsgUUIDFromSession} from "./message.js";
+import {relayForwardContent, relayInit} from "./relay.js";
 /* eslint-enable import/order */
 interface ForwardMsg {
 	head: Element[];
@@ -189,8 +191,6 @@ async function atTranslator(
 	return newMsg;
 }
 
-import {logger} from "./logger";
-import {msgCacheFindByKey, msgCacheGetLocalIDByUUID} from "./cache";
 async function quoteTranslator(
 	session: Session,
 	node: ForwardNode,

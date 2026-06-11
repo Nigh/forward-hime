@@ -43,7 +43,7 @@
 
 Trusted Publishing is configured on npm; pushing a semver tag publishes from `.github/workflows/release.yml`.
 
-1. Bump `package.json` `version` (e.g. `1.4.0-alpha.0` for production alpha tests).
+1. Bump `package.json` `version` (e.g. `1.4.0-alpha.1` for production alpha tests).
 2. Commit, then tag and push: `git tag v1.4.0-alpha.0 && git push origin v1.4.0-alpha.0` (tag must match `v*.*.*`).
 3. CI runs lint/tsc, then `npm publish` with provenance in the `npm-publish` environment.
 4. Prerelease versions (`1.4.0-alpha.0`) publish to dist-tag `alpha` (from the prerelease id); stable versions update `latest`.

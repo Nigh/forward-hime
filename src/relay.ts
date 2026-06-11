@@ -1,6 +1,6 @@
 import {Element, h} from "koishi";
 
-import {ConfigSet} from "./config";
+import {ConfigSet} from "./config.js";
 
 interface MediaRelayConfig {
 	Enabled: boolean;
