@@ -49,5 +49,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Type check
+        run: npx tsc -p tsconfig.json
+
+      - name: Resolve npm dist-tag
+        id: dist
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" != *-* ]]; then
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            PRERELEASE_ID=$(node -p "require('./package.json').version.split('-')[1].split('.')[0]")
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$PRERELEASE_ID" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish
-        run: npm publish --access public
+        env:
+          NPM_CONFIG_PROVENANCE: "true"
+        run: |
+          if [ "${{ steps.dist.outputs.prerelease }}" = "true" ]; then
+            npm publish --access public --tag "${{ steps.dist.outputs.tag }}"
+          else
+            npm publish --access public
+          fi
