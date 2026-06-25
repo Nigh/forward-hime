@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HUSKY: 0
-      ESLINT_USE_FLAT_CONFIG: "false"
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -36,7 +35,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HUSKY: 0
-      ESLINT_USE_FLAT_CONFIG: "false"
     permissions:
       id-token: write
       contents: read
