@@ -56,7 +56,7 @@ export function apply(ctx: Context, cfg: ConfigSet) {
 						session.platform,
 						session.channelId + ":" + session.messageId,
 					);
-					let uuid = MsgUUIDFromSession(session);
+					const uuid = MsgUUIDFromSession(session);
 
 					msgCache({
 						platform: session.platform,
@@ -78,7 +78,7 @@ export function apply(ctx: Context, cfg: ConfigSet) {
 
 			for (const k in group.Nodes) {
 				if (group.Nodes[k].Guild !== session.channelId) {
-					MessageForward(ctx, group.Nodes[k], session);
+					MessageForward(ctx, group.Nodes[k], session, cfg.ForwardTimeoutSec);
 				}
 			}
 		}

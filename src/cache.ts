@@ -62,8 +62,8 @@ export async function msgCacheFindByUUID(uuid: string) {
 	if (cacheNotEnabled()) {
 		return;
 	}
-	let caches = await ctx.cache.entries("msgCache");
-	let result = [];
+	const caches = await ctx.cache.entries("msgCache");
+	const result = [];
 
 	for await (const item of caches) {
 		if (item[1].uuid === uuid) {
@@ -79,7 +79,7 @@ export async function msgCacheGetLocalIDByUUID(node: ForwardNode, uuid: string) 
 		return;
 	}
 
-	let caches = await ctx.cache.entries("msgCache");
+	const caches = await ctx.cache.entries("msgCache");
 
 	for await (const item of caches) {
 		if (

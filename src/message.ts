@@ -14,7 +14,7 @@ async function MessageSendWithDecorator(
 	ctx: Context,
 	node: ForwardNode,
 	session: Session,
-	Deco: Function,
+	Deco: (...args: any[]) => any, // eslint-disable-line @typescript-eslint/no-explicit-any
 ) {
 	const uuid = session.channelId + ":" + session.messageId;
 	const content = await Deco(session, node);
@@ -22,7 +22,7 @@ async function MessageSendWithDecorator(
 	await ctx.bots[`${node.Platform}:${node.BotID}`]
 		.sendMessage(node.Guild, content)
 		.then((res) => {
-			let mc = {
+			const mc = {
 				platform: node.Platform,
 				bot: node.BotID,
 				guild: node.Guild,
@@ -55,18 +55,35 @@ function sessionTypeArray(session: Session) {
 	return contentTypes;
 }
 
-export async function MessageForward(ctx: Context, node: ForwardNode, session: Session) {
+export async function MessageForward(
+	ctx: Context,
+	node: ForwardNode,
+	session: Session,
+	timeoutSec?: number,
+) {
 	if (!botExistsCheck(ctx, node)) {
 		return;
 	}
-	MessageSendWithDecorator(ctx, node, session, MsgDecorator).catch((error) => {
+
+	const timeoutMs = (timeoutSec ?? 30) * 1000;
+
+	const sendPromise = MessageSendWithDecorator(ctx, node, session, MsgDecorator);
+	const timeoutPromise = new Promise<never>((_, reject) =>
+		setTimeout(() => reject(new Error("forward total timeout")), timeoutMs),
+	);
+
+	Promise.race([sendPromise, timeoutPromise]).catch((error) => {
 		logger.error(
 			`ERROR:<MessageSend ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${error}`,
 		);
+		const isTimeout =
+			error instanceof Error && error.message === "forward total timeout";
 		const readableReason =
 			error instanceof MediaRelayError
 				? `[转发失败] ${error.userMessage} `
-				: undefined;
+				: isTimeout
+					? "[转发超时] "
+					: undefined;
 		const fallbackDeco = readableReason
 			? (fallbackSession: Session, fallbackNode: ForwardNode) =>
 					MsgDecoratorFallbackReason(

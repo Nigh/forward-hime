@@ -129,7 +129,7 @@ function createRelayElement(
 	buffer: Buffer,
 	filename?: string,
 ) {
-	const helperMap = h as unknown as Record<string, Function>;
+	const helperMap = h as unknown as Record<string, (...args: any[]) => Element>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 	if (kind === "img") {
 		return h.image(buffer, mime);

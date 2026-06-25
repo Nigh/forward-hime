@@ -19,6 +19,7 @@ export interface ConfigSet {
 		RequestTimeoutSec: number;
 		MaxFileSizeMB: number;
 	};
+	ForwardTimeoutSec: number;
 	CacheTimeout: number;
 	ForwardGroups: {
 		Nodes: ForwardNode[];
@@ -44,6 +45,11 @@ export const createConfig = () =>
 			DefaultFallbackMsgPrefix: Schema.string()
 				.description("默认Fallback消息前缀")
 				.default("[消息降级] "),
+			ForwardTimeoutSec: Schema.number()
+				.description("转发总超时时间（秒）- 含媒体下载与发送，超时则降级")
+				.default(30)
+				.min(5)
+				.max(120),
 			MediaRelay: Schema.object({
 				Enabled: Schema.boolean()
 					.description("启用媒体中转（下载后再转发）")
