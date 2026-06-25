@@ -3,7 +3,7 @@ import {Element, Session, h} from "koishi";
 import {defaultMiddleware} from "../decorator";
 
 function cqJsonTranslator(content: Element[], elem: Element) {
-	let json = JSON.parse(elem.attrs.data);
+	const json = JSON.parse(elem.attrs.data);
 	let hit = 0;
 
 	if (json) {
@@ -46,11 +46,11 @@ function getNameFromQQat(elem: Element) {
 
 function Middleware(session: Session) {
 	const platform = guessPlatform(session);
-	let sessionTemp = session;
+	const sessionTemp = session;
 
 	sessionTemp.platform = platform;
-	let head: Element[] = defaultMiddleware(sessionTemp).head;
-	let newContent: Element[] = [];
+	const head: Element[] = defaultMiddleware(sessionTemp).head;
+	const newContent: Element[] = [];
 
 	if (platform === "QQ") {
 		IdNameCache.set(session.userId, session.username);

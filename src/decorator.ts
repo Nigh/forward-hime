@@ -1,4 +1,3 @@
-/* eslint-disable import/order -- circular dependency with ./message */
 import {Session, Element, h} from "koishi";
 
 import {msgCacheFindByKey, msgCacheGetLocalIDByUUID} from "./cache";
@@ -7,7 +6,6 @@ import * as decorator from "./decorators";
 import {logger} from "./logger";
 import {MsgUUIDFromSession} from "./message";
 import {relayForwardContent, relayInit} from "./relay";
-/* eslint-enable import/order */
 interface ForwardMsg {
 	head: Element[];
 	content: Element[];
@@ -29,6 +27,7 @@ export function decoratorInit(cfg: ConfigSet) {
 	relayInit(cfg);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function renderTemplate(template: string, data: Record<string, any>): string {
 	return template.replace(/\$\{(\w+)\}/g, (_, key) => {
 		return data[key] !== undefined ? data[key] : `$\{${key}}`; // 未找到则保留原模板
@@ -44,7 +43,7 @@ export function defaultDecorator({head, content}: ForwardMsg) {
 }
 
 export function defaultMiddleware(session: Session) {
-	let head: Element[] = [h("span", renderTemplate(defaultPrefix, session))];
+	const head: Element[] = [h("span", renderTemplate(defaultPrefix, session))];
 
 	if (defaultPrefixNewline) {
 		head.push(h("br"));
@@ -55,7 +54,7 @@ export function defaultMiddleware(session: Session) {
 
 const localDecorators = [atTranslator, quoteTranslator];
 
-let msgMiddleCache: FMsgCache[] = [];
+const msgMiddleCache: FMsgCache[] = [];
 
 function msgMiddleCacheAppend(msg: FMsgCache) {
 	msgMiddleCache.push(msg);
@@ -75,29 +74,26 @@ function msgMiddleCacheFind(uuid: string) {
 }
 
 function MsgToMiddleware(session: Session) {
-	let elems: ForwardMsg = {head: [], content: []};
-	let _platform_in = decorator[session.platform];
+	const _platform_in = decorator[session.platform];
 
 	if (_platform_in && typeof _platform_in.Middleware === "function") {
-		elems = _platform_in.Middleware(session);
-	} else {
-		elems = defaultMiddleware(session);
+		return _platform_in.Middleware(session);
 	}
 
-	return elems;
+	return defaultMiddleware(session);
 }
 
 export async function MsgMiddlewareCache(session: Session) {
-	let elems: ForwardMsg = MsgToMiddleware(session);
+	const elems: ForwardMsg = MsgToMiddleware(session);
 
 	msgMiddleCacheAppend({UUID: MsgUUIDFromSession(session), msg: elems});
 	logger.debug(`[msgMiddleCache] CACHED`);
 }
 export async function MsgDecorator(session: Session, node: ForwardNode) {
 	let elems: ForwardMsg;
-	let _platform_out = decorator[node.Platform];
+	const _platform_out = decorator[node.Platform];
 
-	let elemCache = msgMiddleCacheFind(MsgUUIDFromSession(session));
+	const elemCache = msgMiddleCacheFind(MsgUUIDFromSession(session));
 
 	if (elemCache) {
 		logger.debug(`[msgMiddleCache] HIT`);
@@ -123,7 +119,7 @@ export async function MsgDecorator(session: Session, node: ForwardNode) {
 
 function defaultDecoratorFallback({head, content}: ForwardMsg, reason?: string) {
 	let msg: Element[] = [];
-	let newContent: Element[] = [];
+	const newContent: Element[] = [];
 
 	newContent.push(h("span", reason || defaultFallback));
 	for (const key in content) {
@@ -138,9 +134,8 @@ function defaultDecoratorFallback({head, content}: ForwardMsg, reason?: string) 
 	return msg;
 }
 export async function MsgDecoratorFallback(session: Session, node: ForwardNode) {
-	let elems: ForwardMsg = {head: [], content: []};
+	let elems = defaultMiddleware(session);
 
-	elems = defaultMiddleware(session);
 	for (const fn of localDecorators) {
 		elems = (await fn(session, node, elems)) as ForwardMsg;
 	}
@@ -153,9 +148,8 @@ export async function MsgDecoratorFallbackReason(
 	node: ForwardNode,
 	reason: string,
 ) {
-	let elems: ForwardMsg = {head: [], content: []};
+	let elems = defaultMiddleware(session);
 
-	elems = defaultMiddleware(session);
 	for (const fn of localDecorators) {
 		elems = (await fn(session, node, elems)) as ForwardMsg;
 	}
@@ -169,7 +163,7 @@ async function atTranslator(
 	{head, content}: ForwardMsg,
 ) {
 	const newMsg = await new Promise((resolve) => {
-		let newContent: Element[] = [];
+		const newContent: Element[] = [];
 
 		for (const key in content) {
 			const element = content[key];
@@ -203,10 +197,10 @@ async function quoteTranslator(
 	const cache = await msgCacheFindByKey(key);
 
 	if (cache) {
-		let msgid = await msgCacheGetLocalIDByUUID(node, cache.uuid);
+		const msgid = await msgCacheGetLocalIDByUUID(node, cache.uuid);
 
 		if (msgid) {
-			let newHead = [h("quote", {id: msgid})].concat(head);
+			const newHead = [h("quote", {id: msgid})].concat(head);
 
 			return {head: newHead, content: content} as ForwardMsg;
 		} else {
