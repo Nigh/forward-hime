@@ -78,7 +78,13 @@ export function apply(ctx: Context, cfg: ConfigSet) {
 
 			for (const k in group.Nodes) {
 				if (group.Nodes[k].Guild !== session.channelId) {
-					MessageForward(ctx, group.Nodes[k], session, cfg.ForwardTimeoutSec);
+					MessageForward(
+						ctx,
+						group.Nodes[k],
+						session,
+						cfg.ForwardTimeoutSec,
+						cfg.MediaRelay.Enabled,
+					);
 				}
 			}
 		}

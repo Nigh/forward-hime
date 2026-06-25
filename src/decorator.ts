@@ -117,6 +117,31 @@ export async function MsgDecorator(session: Session, node: ForwardNode) {
 	}
 }
 
+export async function MsgDecoratorNoRelay(session: Session, node: ForwardNode) {
+	let elems: ForwardMsg;
+	const _platform_out = decorator[node.Platform];
+
+	const elemCache = msgMiddleCacheFind(MsgUUIDFromSession(session));
+
+	if (elemCache) {
+		elems = elemCache;
+	} else {
+		elems = MsgToMiddleware(session);
+	}
+
+	for (const fn of localDecorators) {
+		elems = (await fn(session, node, elems)) as ForwardMsg;
+	}
+
+	logger.debug(`[MsgDecoratorNoRelay] fallback to direct forward`);
+
+	if (_platform_out && typeof _platform_out.Decorator === "function") {
+		return _platform_out.Decorator(elems);
+	} else {
+		return defaultDecorator(elems);
+	}
+}
+
 function defaultDecoratorFallback({head, content}: ForwardMsg, reason?: string) {
 	let msg: Element[] = [];
 	const newContent: Element[] = [];

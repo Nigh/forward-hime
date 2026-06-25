@@ -4,6 +4,7 @@ import {logger} from "./logger";
 import {ForwardNode} from "./config";
 import {
 	MsgDecorator,
+	MsgDecoratorNoRelay,
 	MsgDecoratorFallback,
 	MsgDecoratorFallbackReason,
 } from "./decorator";
@@ -60,37 +61,27 @@ export async function MessageForward(
 	node: ForwardNode,
 	session: Session,
 	timeoutSec?: number,
+	relayEnabled?: boolean,
 ) {
 	if (!botExistsCheck(ctx, node)) {
 		return;
 	}
 
 	const timeoutMs = (timeoutSec ?? 30) * 1000;
+	const deco = relayEnabled !== false ? MsgDecorator : MsgDecoratorNoRelay;
 
-	const sendPromise = MessageSendWithDecorator(ctx, node, session, MsgDecorator);
-	const timeoutPromise = new Promise<never>((_, reject) =>
-		setTimeout(() => reject(new Error("forward total timeout")), timeoutMs),
-	);
-
-	Promise.race([sendPromise, timeoutPromise]).catch((error) => {
-		logger.error(
-			`ERROR:<MessageSend ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${error}`,
+	function withTimeout<T>(promise: Promise<T>): Promise<T> {
+		const timeoutPromise = new Promise<never>((_, reject) =>
+			setTimeout(() => reject(new Error("forward total timeout")), timeoutMs),
 		);
-		const isTimeout =
-			error instanceof Error && error.message === "forward total timeout";
-		const readableReason =
-			error instanceof MediaRelayError
-				? `[转发失败] ${error.userMessage} `
-				: isTimeout
-					? "[转发超时] "
-					: undefined;
-		const fallbackDeco = readableReason
+
+		return Promise.race([promise, timeoutPromise]);
+	}
+
+	function sendDegraded(reason?: string) {
+		const fallbackDeco = reason
 			? (fallbackSession: Session, fallbackNode: ForwardNode) =>
-					MsgDecoratorFallbackReason(
-						fallbackSession,
-						fallbackNode,
-						readableReason,
-					)
+					MsgDecoratorFallbackReason(fallbackSession, fallbackNode, reason)
 			: MsgDecoratorFallback;
 
 		MessageSendWithDecorator(ctx, node, session, fallbackDeco).catch((error) => {
@@ -98,7 +89,42 @@ export async function MessageForward(
 				`ERROR:<MessageSendFallback ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${error}`,
 			);
 		});
-	});
+	}
+
+	function reasonFromError(error: unknown): string | undefined {
+		if (error instanceof MediaRelayError) {
+			return `[转发失败] ${error.userMessage} `;
+		}
+		if (error instanceof Error && error.message === "forward total timeout") {
+			return "[转发超时] ";
+		}
+
+		return undefined;
+	}
+
+	withTimeout(MessageSendWithDecorator(ctx, node, session, deco)).catch(
+		(firstError) => {
+			logger.error(
+				`ERROR:<MessageSend ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${firstError}`,
+			);
+
+			if (relayEnabled !== false && firstError instanceof MediaRelayError) {
+				logger.info(
+					`[MessageForward] relay failed, retrying without relay: ${node.Platform}`,
+				);
+				withTimeout(
+					MessageSendWithDecorator(ctx, node, session, MsgDecoratorNoRelay),
+				).catch((secondError) => {
+					logger.error(
+						`ERROR:<MessageSendDirect ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${secondError}`,
+					);
+					sendDegraded(reasonFromError(secondError));
+				});
+			} else {
+				sendDegraded(reasonFromError(firstError));
+			}
+		},
+	);
 }
 
 export async function MessageDelete(ctx: Context, msg: MsgCache) {
