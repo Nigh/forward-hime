@@ -46,8 +46,8 @@ export const createConfig = () =>
 				.description("默认Fallback消息前缀")
 				.default("[消息降级] "),
 			ForwardTimeoutSec: Schema.number()
-				.description("转发总超时时间（秒）- 含媒体下载与发送，超时则降级")
-				.default(30)
+				.description("转发慢速告警阈值（秒）- 超过该时间仍等待发送结果，避免重复消息")
+				.default(60)
 				.min(5)
 				.max(120),
 			MediaRelay: Schema.object({
@@ -61,7 +61,7 @@ export const createConfig = () =>
 					.max(180),
 				RequestTimeoutSec: Schema.number()
 					.description("媒体下载超时时间（秒）")
-					.default(15)
+				.default(30)
 					.min(3)
 					.max(120),
 				MaxFileSizeMB: Schema.number()
