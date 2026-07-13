@@ -70,12 +70,14 @@ export async function MessageForward(
 	const timeoutMs = (timeoutSec ?? 30) * 1000;
 	const deco = relayEnabled !== false ? MsgDecorator : MsgDecoratorNoRelay;
 
-	function withTimeout<T>(promise: Promise<T>): Promise<T> {
-		const timeoutPromise = new Promise<never>((_, reject) =>
-			setTimeout(() => reject(new Error("forward total timeout")), timeoutMs),
-		);
+	function warnIfSlow<T>(promise: Promise<T>): Promise<T> {
+		const timer = setTimeout(() => {
+			logger.warn(
+				`[MessageForward] still pending after ${timeoutSec ?? 30}s; awaiting result to prevent duplicate delivery: ${node.Platform}`,
+			);
+		}, timeoutMs);
 
-		return Promise.race([promise, timeoutPromise]);
+		return promise.finally(() => clearTimeout(timer));
 	}
 
 	function sendDegraded(reason?: string) {
@@ -95,14 +97,11 @@ export async function MessageForward(
 		if (error instanceof MediaRelayError) {
 			return `[转发失败] ${error.userMessage} `;
 		}
-		if (error instanceof Error && error.message === "forward total timeout") {
-			return "[转发超时] ";
-		}
 
 		return undefined;
 	}
 
-	withTimeout(MessageSendWithDecorator(ctx, node, session, deco)).catch(
+	warnIfSlow(MessageSendWithDecorator(ctx, node, session, deco)).catch(
 		(firstError) => {
 			logger.error(
 				`ERROR:<MessageSend ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${firstError}`,
@@ -112,7 +111,7 @@ export async function MessageForward(
 				logger.info(
 					`[MessageForward] relay failed, retrying without relay: ${node.Platform}`,
 				);
-				withTimeout(
+				warnIfSlow(
 					MessageSendWithDecorator(ctx, node, session, MsgDecoratorNoRelay),
 				).catch((secondError) => {
 					logger.error(
