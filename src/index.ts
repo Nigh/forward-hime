@@ -9,7 +9,7 @@ import {
 } from "./cache";
 import {createConfig, ConfigSet} from "./config";
 import {MsgMiddlewareCache, decoratorInit} from "./decorator";
-import {logger} from "./logger";
+import {logger, loggerInit} from "./logger";
 import {MessageForward, MessageDelete, MsgUUIDFromSession} from "./message";
 
 export const name = `forward hime - 转发姬`;
@@ -33,6 +33,7 @@ export const inject = {
 export const Config = createConfig();
 
 export function apply(ctx: Context, cfg: ConfigSet) {
+	loggerInit(ctx);
 	msgCacheInit(ctx, cfg);
 	decoratorInit(cfg);
 
