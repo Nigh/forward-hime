@@ -134,8 +134,11 @@ function createRelayElement(
 	if (kind === "img") {
 		return h.image(buffer, mime);
 	}
+	if (kind === "file") {
+		return helperMap.file(buffer, mime, {filename});
+	}
 	if (helperMap[kind]) {
-		return helperMap[kind](buffer, mime, filename);
+		return helperMap[kind](buffer, mime);
 	}
 	const base64 = buffer.toString("base64");
 
