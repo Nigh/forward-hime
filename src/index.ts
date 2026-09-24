@@ -117,6 +117,6 @@ export function apply(ctx: Context, cfg: ConfigSet) {
 	});
 	// Note: KOOK消息编辑会改变消息ID
 	ctx.on("message-updated", async (session) => {
-		logger.debug("[message-updated]", session.messageId, session);
+		logger.debug("[message-updated]", session.messageId);
 	});
 }
