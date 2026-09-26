@@ -10,19 +10,41 @@ import {
 } from "./decorator";
 import {MsgCache, msgCache} from "./cache";
 import {MediaRelayError} from "./relay";
+import {
+	createTraceId,
+	diagnosticFilename,
+	diagnosticMime,
+	sanitizeError,
+	writeDiagnostic,
+} from "./diagnostics";
 
 async function MessageSendWithDecorator(
 	ctx: Context,
 	node: ForwardNode,
 	session: Session,
 	Deco: (...args: any[]) => any, // eslint-disable-line @typescript-eslint/no-explicit-any
+	traceId: string,
+	attempt: string,
 ) {
+	const startedAt = Date.now();
 	const uuid = session.channelId + ":" + session.messageId;
-	const content = await Deco(session, node);
 
-	await ctx.bots[`${node.Platform}:${node.BotID}`]
-		.sendMessage(node.Guild, content)
-		.then((res) => {
+	writeDiagnostic({
+		traceId,
+		phase: "send-attempt",
+		attempt,
+		source: {platform: session.platform, node: session.channelId},
+		target: {platform: node.Platform, node: node.Guild},
+		elementTypes: session.elements.map((element) => element.type),
+	});
+	try {
+		const content = await Deco(session, node, traceId);
+		const res = await ctx.bots[`${node.Platform}:${node.BotID}`].sendMessage(
+			node.Guild,
+			content,
+		);
+
+		{
 			const mc = {
 				platform: node.Platform,
 				bot: node.BotID,
@@ -37,13 +59,32 @@ async function MessageSendWithDecorator(
 				msgCache(mc);
 				logger.debug(`[MessageForward] to ${mc.platform} ${mc.uuid}`);
 			}
-		})
-		.catch((error) => {
-			logger.error(
-				`ERROR:<MessageSendWithDecorator ${node.Platform}> ctx=${ctx} ${error}`,
-			);
-			throw error;
+		}
+		writeDiagnostic({
+			traceId,
+			phase: "send-result",
+			attempt,
+			status: "success",
+			durationMs: Date.now() - startedAt,
+			source: {platform: session.platform, node: session.channelId},
+			target: {platform: node.Platform, node: node.Guild},
 		});
+	} catch (error) {
+		writeDiagnostic({
+			traceId,
+			phase: "send-result",
+			attempt,
+			status: "error",
+			durationMs: Date.now() - startedAt,
+			source: {platform: session.platform, node: session.channelId},
+			target: {platform: node.Platform, node: node.Guild},
+			error: sanitizeError(error),
+		});
+		logger.error(
+			`ERROR:<MessageSendWithDecorator ${node.Platform}> ctx=${ctx} ${error}`,
+		);
+		throw error;
+	}
 }
 
 function sessionTypeArray(session: Session) {
@@ -63,9 +104,41 @@ export async function MessageForward(
 	timeoutSec?: number,
 	relayEnabled?: boolean,
 ) {
+	const traceId = createTraceId();
+	const source = {platform: session.platform, node: session.channelId};
+	const target = {platform: node.Platform, node: node.Guild};
+
 	if (!botExistsCheck(ctx, node)) {
+		writeDiagnostic({
+			traceId,
+			phase: "forward-result",
+			status: "bot-missing",
+			source,
+			target,
+		});
+
 		return;
 	}
+	writeDiagnostic({
+		traceId,
+		phase: "forward-start",
+		source,
+		target,
+		elementTypes: session.elements.map((element) => element.type),
+		media: session.elements
+			.filter((element) =>
+				["img", "image", "audio", "video", "file"].includes(element.type),
+			)
+			.map((element) => ({
+				type: element.type,
+				filename: diagnosticFilename(element.attrs?.filename),
+				mime: diagnosticMime(element.attrs?.mime),
+				size:
+					typeof element.attrs?.size === "number"
+						? element.attrs.size
+						: undefined,
+			})),
+	});
 
 	const timeoutMs = (timeoutSec ?? 30) * 1000;
 	const deco = relayEnabled !== false ? MsgDecorator : MsgDecoratorNoRelay;
@@ -81,12 +154,20 @@ export async function MessageForward(
 	}
 
 	function sendDegraded(reason?: string) {
+		writeDiagnostic({traceId, phase: "forward-degraded", source, target});
 		const fallbackDeco = reason
 			? (fallbackSession: Session, fallbackNode: ForwardNode) =>
 					MsgDecoratorFallbackReason(fallbackSession, fallbackNode, reason)
 			: MsgDecoratorFallback;
 
-		MessageSendWithDecorator(ctx, node, session, fallbackDeco).catch((error) => {
+		MessageSendWithDecorator(
+			ctx,
+			node,
+			session,
+			fallbackDeco,
+			traceId,
+			"fallback",
+		).catch((error) => {
 			logger.error(
 				`ERROR:<MessageSendFallback ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${error}`,
 			);
@@ -101,29 +182,46 @@ export async function MessageForward(
 		return undefined;
 	}
 
-	warnIfSlow(MessageSendWithDecorator(ctx, node, session, deco)).catch(
-		(firstError) => {
-			logger.error(
-				`ERROR:<MessageSend ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${firstError}`,
-			);
+	const traceableDeco = (sourceSession: Session, targetNode: ForwardNode, id: string) =>
+		deco(sourceSession, targetNode, id);
 
-			if (relayEnabled !== false && firstError instanceof MediaRelayError) {
-				logger.info(
-					`[MessageForward] relay failed, retrying without relay: ${node.Platform}`,
+	warnIfSlow(
+		MessageSendWithDecorator(
+			ctx,
+			node,
+			session,
+			traceableDeco,
+			traceId,
+			relayEnabled === false ? "direct" : "relay",
+		),
+	).catch((firstError) => {
+		logger.error(
+			`ERROR:<MessageSend ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${firstError}`,
+		);
+
+		if (relayEnabled !== false && firstError instanceof MediaRelayError) {
+			logger.info(
+				`[MessageForward] relay failed, retrying without relay: ${node.Platform}`,
+			);
+			warnIfSlow(
+				MessageSendWithDecorator(
+					ctx,
+					node,
+					session,
+					MsgDecoratorNoRelay,
+					traceId,
+					"direct-retry",
+				),
+			).catch((secondError) => {
+				logger.error(
+					`ERROR:<MessageSendDirect ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${secondError}`,
 				);
-				warnIfSlow(
-					MessageSendWithDecorator(ctx, node, session, MsgDecoratorNoRelay),
-				).catch((secondError) => {
-					logger.error(
-						`ERROR:<MessageSendDirect ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${secondError}`,
-					);
-					sendDegraded(reasonFromError(secondError));
-				});
-			} else {
-				sendDegraded(reasonFromError(firstError));
-			}
-		},
-	);
+				sendDegraded(reasonFromError(secondError));
+			});
+		} else {
+			sendDegraded(reasonFromError(firstError));
+		}
+	});
 }
 
 export async function MessageDelete(ctx: Context, msg: MsgCache) {

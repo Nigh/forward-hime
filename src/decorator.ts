@@ -89,7 +89,11 @@ export async function MsgMiddlewareCache(session: Session) {
 	msgMiddleCacheAppend({UUID: MsgUUIDFromSession(session), msg: elems});
 	logger.debug(`[msgMiddleCache] CACHED`);
 }
-export async function MsgDecorator(session: Session, node: ForwardNode) {
+export async function MsgDecorator(
+	session: Session,
+	node: ForwardNode,
+	traceId?: string,
+) {
 	let elems: ForwardMsg;
 	const _platform_out = decorator[node.Platform];
 
@@ -108,7 +112,7 @@ export async function MsgDecorator(session: Session, node: ForwardNode) {
 	}
 	elems = {
 		head: elems.head,
-		content: await relayForwardContent(elems.content),
+		content: await relayForwardContent(elems.content, traceId, session, node),
 	};
 	if (_platform_out && typeof _platform_out.Decorator === "function") {
 		return _platform_out.Decorator(elems);
