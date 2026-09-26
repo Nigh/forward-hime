@@ -164,6 +164,9 @@ function createRelayElement(
 	if (kind === "img") {
 		return h.image(buffer, mime);
 	}
+	if (kind === "audio") {
+		return h.audio(buffer, mime, {file: filename});
+	}
 	if (kind === "file") {
 		const attrs = {file: filename, filename, title: filename};
 
@@ -319,7 +322,8 @@ async function downloadAndRelay(
 	const mime =
 		response.headers.get("content-type")?.split(";")[0].trim() ||
 		pickDefaultMime(kind);
-	const filename = kind === "file" ? pickFilename(element, src) : undefined;
+	const filename =
+		kind === "file" || kind === "audio" ? pickFilename(element, src) : undefined;
 	const relayed = createRelayElement(kind, mime, buffer, filename, node?.Platform);
 
 	relayCache.set(cacheKey, {

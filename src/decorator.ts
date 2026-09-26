@@ -92,6 +92,30 @@ function MsgToMiddleware(session: Session) {
 	return defaultMiddleware(session);
 }
 
+function discordAudioAttachments(
+	session: Session,
+	node: ForwardNode,
+	content: Element[],
+) {
+	if (session.platform !== "onebot" || node.Platform !== "discord") {
+		return content;
+	}
+
+	return content.map((element) => {
+		if (element.type !== "audio") return element;
+		const src = element.attrs.src || element.attrs.url;
+
+		if (typeof src !== "string") return element;
+		const name = element.attrs.filename || element.attrs.file;
+		const filename =
+			typeof name === "string" && /^[^/\\:]+\.[a-z\d]+$/i.test(name)
+				? name
+				: "voice.bin";
+
+		return h.image(src, {file: filename, mode: "download"});
+	});
+}
+
 export async function MsgMiddlewareCache(session: Session) {
 	const elems: ForwardMsg = MsgToMiddleware(session);
 
@@ -121,7 +145,11 @@ export async function MsgDecorator(
 	}
 	elems = {
 		head: elems.head,
-		content: await relayForwardContent(elems.content, traceId, session, node),
+		content: discordAudioAttachments(
+			session,
+			node,
+			await relayForwardContent(elems.content, traceId, session, node),
+		),
 	};
 	if (_platform_out && typeof _platform_out.Decorator === "function") {
 		return _platform_out.Decorator(elems);
@@ -147,6 +175,10 @@ export async function MsgDecoratorNoRelay(session: Session, node: ForwardNode) {
 	}
 
 	logger.debug(`[MsgDecoratorNoRelay] fallback to direct forward`);
+	elems = {
+		head: elems.head,
+		content: discordAudioAttachments(session, node, elems.content),
+	};
 
 	if (_platform_out && typeof _platform_out.Decorator === "function") {
 		return _platform_out.Decorator(elems);
