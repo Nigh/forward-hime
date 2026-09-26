@@ -49,7 +49,16 @@ export function defaultMiddleware(session: Session) {
 		head.push(h("br"));
 	}
 
-	return {head: head, content: session.elements} as ForwardMsg;
+	const content =
+		session.platform === "discord"
+			? session.elements.map((element) =>
+					element.type === "record"
+						? h("audio", element.attrs, element.children)
+						: element,
+				)
+			: session.elements;
+
+	return {head: head, content} as ForwardMsg;
 }
 
 const localDecorators = [atTranslator, quoteTranslator];
