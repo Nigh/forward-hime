@@ -1,4 +1,4 @@
-import {Element, h} from "koishi";
+import {Context, Element, h} from "koishi";
 
 import {ConfigSet} from "./config";
 import {Session} from "koishi";
@@ -49,8 +49,23 @@ export class MediaRelayError extends Error {
 	}
 }
 
-export function relayInit(cfg: ConfigSet) {
+export function relayInit(ctx: Context, cfg: ConfigSet) {
 	relayConfig = cfg.MediaRelay;
+	ctx.on("http/file", (url, options) => {
+		const {filename, file} = options as {filename?: unknown; file?: unknown};
+
+		if (typeof filename !== "string" || file !== filename) return;
+		const match = /^data:([\w.+/-]+);base64,(.*)$/.exec(url);
+
+		if (match) {
+			return {
+				data: Buffer.from(match[2], "base64"),
+				type: match[1],
+				mime: match[1],
+				filename,
+			};
+		}
+	});
 }
 
 function cleanupExpiredRelayCache() {
@@ -127,8 +142,14 @@ function getCacheKey(element: Element) {
 	return `${mediaType}:${src}`;
 }
 
-function relayElementFromCache(item: RelayCacheItem) {
-	return createRelayElement(item.kind, item.mime, item.buffer, item.filename);
+function relayElementFromCache(item: RelayCacheItem, targetPlatform?: string) {
+	return createRelayElement(
+		item.kind,
+		item.mime,
+		item.buffer,
+		item.filename,
+		targetPlatform,
+	);
 }
 
 function createRelayElement(
@@ -136,6 +157,7 @@ function createRelayElement(
 	mime: string,
 	buffer: Buffer,
 	filename?: string,
+	targetPlatform?: string,
 ) {
 	const helperMap = h as unknown as Record<string, (...args: any[]) => Element>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -143,7 +165,11 @@ function createRelayElement(
 		return h.image(buffer, mime);
 	}
 	if (kind === "file") {
-		return helperMap.file(buffer, mime, {filename});
+		const attrs = {file: filename, filename, title: filename};
+
+		return targetPlatform === "discord"
+			? h.image(buffer, mime, attrs)
+			: helperMap.file(buffer, mime, attrs);
 	}
 	if (helperMap[kind]) {
 		return helperMap[kind](buffer, mime);
@@ -228,7 +254,7 @@ async function downloadAndRelay(
 			});
 		}
 
-		return relayElementFromCache(cacheItem);
+		return relayElementFromCache(cacheItem, node?.Platform);
 	}
 
 	const timeoutSignal =
@@ -290,9 +316,11 @@ async function downloadAndRelay(
 		);
 	}
 
-	const mime = response.headers.get("content-type") || pickDefaultMime(kind);
+	const mime =
+		response.headers.get("content-type")?.split(";")[0].trim() ||
+		pickDefaultMime(kind);
 	const filename = kind === "file" ? pickFilename(element, src) : undefined;
-	const relayed = createRelayElement(kind, mime, buffer, filename);
+	const relayed = createRelayElement(kind, mime, buffer, filename, node?.Platform);
 
 	relayCache.set(cacheKey, {
 		expiresAt: Date.now() + relayConfig.CacheMinutes * 60 * 1000,

@@ -39,7 +39,7 @@ export function apply(ctx: Context, cfg: ConfigSet) {
 	diagnosticsInit(ctx);
 	consoleInit(ctx);
 	msgCacheInit(ctx, cfg);
-	decoratorInit(cfg);
+	decoratorInit(ctx, cfg);
 
 	ctx.on("message-created", async (session) => {
 		const hitGroup = [];
