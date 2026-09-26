@@ -1,4 +1,4 @@
-import {Session, Element, h} from "koishi";
+import {Context, Session, Element, h} from "koishi";
 
 import {msgCacheFindByKey, msgCacheGetLocalIDByUUID} from "./cache";
 import {ConfigSet, ForwardNode} from "./config";
@@ -20,11 +20,11 @@ let defaultPrefix = "";
 let defaultFallback = "";
 let defaultPrefixNewline = true;
 
-export function decoratorInit(cfg: ConfigSet) {
+export function decoratorInit(ctx: Context, cfg: ConfigSet) {
 	defaultPrefix = cfg.DefaultDecorator.Prefix;
 	defaultPrefixNewline = cfg.DefaultDecorator.Newline;
 	defaultFallback = cfg.DefaultFallbackMsgPrefix;
-	relayInit(cfg);
+	relayInit(ctx, cfg);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
