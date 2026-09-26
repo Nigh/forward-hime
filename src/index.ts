@@ -10,6 +10,8 @@ import {
 import {createConfig, ConfigSet} from "./config";
 import {MsgMiddlewareCache, decoratorInit} from "./decorator";
 import {logger, loggerInit} from "./logger";
+import {consoleInit} from "./console";
+import {diagnosticsInit} from "./diagnostics";
 import {MessageForward, MessageDelete, MsgUUIDFromSession} from "./message";
 
 export const name = `forward hime - 转发姬`;
@@ -27,13 +29,15 @@ export const usage = `
 export const reusable = true;
 
 export const inject = {
-	optional: ["cache"],
+	optional: ["cache", "console"],
 };
 
 export const Config = createConfig();
 
 export function apply(ctx: Context, cfg: ConfigSet) {
 	loggerInit(ctx);
+	diagnosticsInit(ctx);
+	consoleInit(ctx);
 	msgCacheInit(ctx, cfg);
 	decoratorInit(cfg);
 

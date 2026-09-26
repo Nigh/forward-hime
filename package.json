@@ -1,7 +1,7 @@
 {
 	"name": "koishi-plugin-forward-hime",
 	"description": "多群组消息互通",
-	"version": "1.4.2-alpha.0",
+	"version": "1.4.2-alpha.1",
 	"author": {
 		"name": "xianii",
 		"email": "jiyucheng007@gmail.com"
@@ -57,7 +57,8 @@
 	},
 	"scripts": {
 		"prepare": "husky",
-		"build": "rm -f tsconfig.tsbuildinfo && rm -rf lib && tsc -b && esbuild src/index.ts --bundle --platform=node --packages=external --outfile=lib/index.js",
+		"build": "rm -f tsconfig.tsbuildinfo && rm -rf lib && tsc -b && esbuild src/index.ts --bundle --platform=node --packages=external --outfile=lib/index.js && esbuild client/index.ts --bundle --platform=browser --format=esm --packages=external --outfile=lib/client/index.js",
+		"test": "node --test",
 		"eslint": "eslint \"src/**/*.{ts,tsx}\"",
 		"format": "prettier --write .",
 		"pub": "npm publish --access public"

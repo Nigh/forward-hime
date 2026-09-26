@@ -1,6 +1,14 @@
 import {Element, h} from "koishi";
 
 import {ConfigSet} from "./config";
+import {Session} from "koishi";
+import {
+	diagnosticFilename,
+	diagnosticMime,
+	sanitizeError,
+	writeDiagnostic,
+} from "./diagnostics";
+import {ForwardNode} from "./config";
 
 interface MediaRelayConfig {
 	Enabled: boolean;
@@ -172,9 +180,29 @@ function networkMessageFromError(error: unknown) {
 	return "网络问题：媒体文件暂时无法获取。";
 }
 
-async function downloadAndRelay(element: Element): Promise<Element> {
+async function downloadAndRelay(
+	element: Element,
+	traceId?: string,
+	session?: Session,
+	node?: ForwardNode,
+): Promise<Element> {
+	const startedAt = Date.now();
 	const kind = normalizeMediaType(element.type);
 	const src = mediaUrlFromElement(element);
+	const media = {
+		type: kind,
+		filename: diagnosticFilename(element.attrs?.filename),
+		mime: diagnosticMime(element.attrs?.mime),
+		size: typeof element.attrs?.size === "number" ? element.attrs.size : undefined,
+	};
+	const context = {
+		source: session && {platform: session.platform, node: session.channelId},
+		target: node && {platform: node.Platform, node: node.Guild},
+	};
+
+	if (traceId) {
+		writeDiagnostic({traceId, phase: "media-relay-start", media, ...context});
+	}
 
 	if (!src) {
 		throw new MediaRelayError(
@@ -188,6 +216,18 @@ async function downloadAndRelay(element: Element): Promise<Element> {
 	const cacheItem = relayCache.get(cacheKey);
 
 	if (cacheItem) {
+		if (traceId) {
+			writeDiagnostic({
+				traceId,
+				phase: "media-relay-result",
+				status: "cache-hit",
+				bytes: cacheItem.buffer.length,
+				mime: diagnosticMime(cacheItem.mime),
+				durationMs: Date.now() - startedAt,
+				...context,
+			});
+		}
+
 		return relayElementFromCache(cacheItem);
 	}
 
@@ -261,11 +301,28 @@ async function downloadAndRelay(element: Element): Promise<Element> {
 		buffer,
 		filename,
 	});
+	if (traceId) {
+		writeDiagnostic({
+			traceId,
+			phase: "media-relay-result",
+			status: "success",
+			media,
+			bytes: buffer.length,
+			mime: diagnosticMime(mime),
+			...context,
+			durationMs: Date.now() - startedAt,
+		});
+	}
 
 	return relayed;
 }
 
-export async function relayForwardContent(content: Element[]) {
+export async function relayForwardContent(
+	content: Element[],
+	traceId?: string,
+	session?: Session,
+	node?: ForwardNode,
+) {
 	if (!relayConfig.Enabled) {
 		return content;
 	}
@@ -276,9 +333,25 @@ export async function relayForwardContent(content: Element[]) {
 			newContent.push(element);
 			continue;
 		}
+		const startedAt = Date.now();
+
 		try {
-			newContent.push(await downloadAndRelay(element));
+			newContent.push(await downloadAndRelay(element, traceId, session, node));
 		} catch (error) {
+			if (traceId) {
+				writeDiagnostic({
+					traceId,
+					phase: "media-relay-result",
+					status: "error",
+					error: sanitizeError(error),
+					durationMs: Date.now() - startedAt,
+					source: session && {
+						platform: session.platform,
+						node: session.channelId,
+					},
+					target: node && {platform: node.Platform, node: node.Guild},
+				});
+			}
 			throw new MediaRelayError(
 				error instanceof Error ? error.message : "relay failed",
 				networkMessageFromError(error),
