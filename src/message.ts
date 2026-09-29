@@ -18,6 +18,12 @@ import {
 	writeDiagnostic,
 } from "./diagnostics";
 
+class DeliveryUncertainError extends Error {
+	constructor(cause: unknown) {
+		super("message delivery status unknown", {cause});
+	}
+}
+
 async function MessageSendWithDecorator(
 	ctx: Context,
 	node: ForwardNode,
@@ -28,6 +34,7 @@ async function MessageSendWithDecorator(
 ) {
 	const startedAt = Date.now();
 	const uuid = session.channelId + ":" + session.messageId;
+	let submitted = false;
 
 	writeDiagnostic({
 		traceId,
@@ -39,6 +46,8 @@ async function MessageSendWithDecorator(
 	});
 	try {
 		const content = await Deco(session, node, traceId);
+
+		submitted = true;
 		const res = await ctx.bots[`${node.Platform}:${node.BotID}`].sendMessage(
 			node.Guild,
 			content,
@@ -83,7 +92,7 @@ async function MessageSendWithDecorator(
 		logger.error(
 			`ERROR:<MessageSendWithDecorator ${node.Platform}> ctx=${ctx} ${error}`,
 		);
-		throw error;
+		throw submitted ? new DeliveryUncertainError(error) : error;
 	}
 }
 
@@ -199,6 +208,12 @@ export async function MessageForward(
 			`ERROR:<MessageSend ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${firstError}`,
 		);
 
+		if (firstError instanceof DeliveryUncertainError) {
+			writeDiagnostic({traceId, phase: "forward-uncertain", source, target});
+
+			return;
+		}
+
 		if (relayEnabled !== false && firstError instanceof MediaRelayError) {
 			logger.info(
 				`[MessageForward] relay failed, retrying without relay: ${node.Platform}`,
@@ -216,6 +231,16 @@ export async function MessageForward(
 				logger.error(
 					`ERROR:<MessageSendDirect ${node.Platform}> ctx=${ctx} ${sessionTypeArray(session)} ${secondError}`,
 				);
+				if (secondError instanceof DeliveryUncertainError) {
+					writeDiagnostic({
+						traceId,
+						phase: "forward-uncertain",
+						source,
+						target,
+					});
+
+					return;
+				}
 				sendDegraded(reasonFromError(secondError));
 			});
 		} else {

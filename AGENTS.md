@@ -39,6 +39,9 @@
 - When touching config schema:
   - keep existing field names and defaults unless migration is clearly handled.
 
+## Known Limitations
+- If `sendMessage` fails after a request is submitted, delivery status is unknown. The plugin does not send a fallback message to avoid duplicates; a message that truly failed to deliver may be missing from the target. Failures before submission still use the fallback path.
+
 ## Release (npm via GitHub Actions)
 
 Trusted Publishing is configured on npm; pushing a semver tag publishes from `.github/workflows/release.yml`.
