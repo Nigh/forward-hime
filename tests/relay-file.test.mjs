@@ -75,6 +75,88 @@ test("file relay keeps names and uses Discord's attachment path", async () => {
 		const telegramFile = fileHandler(onebotFile.attrs.src, onebotFile.attrs);
 		assert.equal(telegramFile.filename, "Discord-QQ椅子.stl");
 		assert.equal(Buffer.from(telegramFile.data).toString(), "solid test");
+
+		globalThis.fetch = async () =>
+			new Response(Buffer.from("0000ftypisom"), {
+				headers: {"content-type": "application/octet-stream"},
+			});
+		const qqVideo = h("video", {src: "https://example.test/opaque-video-id"});
+		const [discordVideo] = await relayForwardContent(
+			[qqVideo],
+			undefined,
+			undefined,
+			{Platform: "discord"},
+		);
+		assert.equal(discordVideo.type, "img");
+		assert.equal(discordVideo.attrs.file, "video.mp4");
+		assert.equal(discordVideo.attrs.filename, "video.mp4");
+		assert.match(discordVideo.attrs.src, /^data:video\/mp4;base64,/);
+		const [cachedOnebotVideo] = await relayForwardContent(
+			[qqVideo],
+			undefined,
+			undefined,
+			{Platform: "onebot"},
+		);
+		assert.equal(cachedOnebotVideo.type, "video");
+		assert.match(cachedOnebotVideo.attrs.src, /^data:video\/mp4;base64,/);
+
+		const videos = [
+			{
+				bytes: Buffer.from("0000ftypqt  "),
+				mime: "application/octet-stream",
+				filename: "video.mov",
+				dataMime: "video/quicktime",
+				id: "mov",
+			},
+			{
+				bytes: Buffer.concat([
+					Buffer.from([0x1a, 0x45, 0xdf, 0xa3]),
+					Buffer.from("webm"),
+				]),
+				filename: "video.webm",
+				dataMime: "video/webm",
+				id: "webm",
+			},
+			{
+				bytes: Buffer.concat([
+					Buffer.from([0x1a, 0x45, 0xdf, 0xa3]),
+					Buffer.from("matroska"),
+				]),
+				filename: "video.mkv",
+				dataMime: "video/x-matroska",
+				id: "mkv",
+			},
+			{
+				bytes: Buffer.from("RIFF0000AVI "),
+				filename: "video.avi",
+				dataMime: "video/x-msvideo",
+				id: "avi",
+			},
+			{
+				bytes: Buffer.from("unknown bytes"),
+				filename: "video.bin",
+				dataMime: "application/octet-stream",
+				id: "unknown",
+			},
+		];
+
+		for (const video of videos) {
+			globalThis.fetch = async () =>
+				new Response(video.bytes, {
+					headers: video.mime ? {"content-type": video.mime} : {},
+				});
+			const [attachment] = await relayForwardContent(
+				[h("video", {src: `https://example.test/${video.id}`})],
+				undefined,
+				undefined,
+				{Platform: "discord"},
+			);
+			assert.equal(attachment.attrs.file, video.filename);
+			assert.match(
+				attachment.attrs.src,
+				new RegExp(`^data:${video.dataMime};base64,`),
+			);
+		}
 	} finally {
 		globalThis.fetch = originalFetch;
 		await rm(workspace, {recursive: true, force: true});
