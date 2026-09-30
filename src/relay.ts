@@ -109,10 +109,28 @@ function pickDefaultMime(kind: string) {
 			return DEFAULT_IMAGE_MIME;
 		case "audio":
 			return DEFAULT_AUDIO_MIME;
-		case "video":
-			return DEFAULT_VIDEO_MIME;
 		default:
 			return DEFAULT_FILE_MIME;
+	}
+}
+
+function detectVideoMime(buffer: Buffer) {
+	if (buffer.toString("ascii", 4, 8) === "ftyp") {
+		return buffer.toString("ascii", 8, 12) === "qt  "
+			? "video/quicktime"
+			: DEFAULT_VIDEO_MIME;
+	}
+	if (buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))) {
+		const header = buffer.toString("ascii", 0, 64);
+
+		if (header.includes("webm")) return "video/webm";
+		if (header.includes("matroska")) return "video/x-matroska";
+	}
+	if (
+		buffer.toString("ascii", 0, 4) === "RIFF" &&
+		buffer.toString("ascii", 8, 12) === "AVI "
+	) {
+		return "video/x-msvideo";
 	}
 }
 
@@ -133,6 +151,22 @@ function pickFilename(element: Element, src: string) {
 	} catch {
 		return "relay-file";
 	}
+}
+
+function pickVideoFilename(element: Element, src: string, mime: string) {
+	const filename = pickFilename(element, src);
+
+	if (/^[^/\\:]+\.(mp4|mov|webm|mkv|avi)$/i.test(filename)) return filename;
+
+	const extensions: Record<string, string> = {
+		"video/mp4": "mp4",
+		"video/quicktime": "mov",
+		"video/webm": "webm",
+		"video/x-matroska": "mkv",
+		"video/x-msvideo": "avi",
+	};
+
+	return `video.${extensions[mime] || "bin"}`;
 }
 
 function getCacheKey(element: Element) {
@@ -173,6 +207,13 @@ function createRelayElement(
 		return targetPlatform === "discord"
 			? h.image(buffer, mime, attrs)
 			: helperMap.file(buffer, mime, attrs);
+	}
+	if (kind === "video" && targetPlatform === "discord") {
+		return h.image(buffer, mime, {
+			file: filename,
+			filename,
+			mode: "download",
+		});
 	}
 	if (helperMap[kind]) {
 		return helperMap[kind](buffer, mime);
@@ -319,11 +360,17 @@ async function downloadAndRelay(
 		);
 	}
 
+	const responseMime = response.headers.get("content-type")?.split(";")[0].trim();
 	const mime =
-		response.headers.get("content-type")?.split(";")[0].trim() ||
-		pickDefaultMime(kind);
+		kind === "video" && (!responseMime || responseMime === DEFAULT_FILE_MIME)
+			? detectVideoMime(buffer) || DEFAULT_FILE_MIME
+			: responseMime || pickDefaultMime(kind);
 	const filename =
-		kind === "file" || kind === "audio" ? pickFilename(element, src) : undefined;
+		kind === "video"
+			? pickVideoFilename(element, src, mime)
+			: kind === "file" || kind === "audio"
+				? pickFilename(element, src)
+				: undefined;
 	const relayed = createRelayElement(kind, mime, buffer, filename, node?.Platform);
 
 	relayCache.set(cacheKey, {
