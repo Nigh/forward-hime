@@ -47,10 +47,19 @@
 | `MediaRelay.CacheMinutes` | `10` | 媒体暂存时间 |
 | `MediaRelay.RequestTimeoutSec` | `30` | 下载超时 |
 | `MediaRelay.MaxFileSizeMB` | `20` | 允许中转的最大体积 |
+| `MediaRelay.ImageCompression.Enabled` | `true` | 启用中转图片 JPEG 压缩 |
+| `MediaRelay.ImageCompression.InputSizeMB` | `2` | 图片超过此体积才压缩（MiB） |
+| `MediaRelay.ImageCompression.TargetSizeMB` | `1` | 压缩后 JPEG 的最大体积（MiB） |
 | `ForwardTimeoutSec` | `60` | 慢转发告警阈值（秒）；仍等待结果，避免重复发送 |
 | `CacheTimeout` | `120` | 消息映射缓存（分钟，≥120）；影响删除 / 引用 |
 
 平台侧有额外处理（如 onebot 的 at / 表情 / 合并转发，kook 无图时补透明图）；通用路径走默认装饰器。
+
+图片压缩配置位于 WebUI 的「媒体中转 / 图片压缩」。旧配置缺少这些字段时仍使用默认值：启用媒体中转后，超过 **2 MiB** 的图片转为不超过 **1 MiB** 的 JPEG（1 MiB = 1024 × 1024 字节）。远程链接和 data URL 图片均经过同一处理，嵌套内容中的图片也适用；未超过门限、关闭图片压缩或关闭媒体中转时不转换。文件、视频和音频不受图片压缩影响。
+
+JPEG 使用质量 80；必要时持续缩小分辨率，直到满足目标体积，不会把仍超目标的图片标记为压缩成功。GIF 和其他多帧动画保留原始字节及格式，不做 JPEG 压缩；视频、音频和文件同样不压缩。静态图片转换时透明背景铺白，自动应用图片方向。图片仍受 `MaxFileSizeMB` 下载上限约束；损坏、不受支持或无法满足目标体积的静态图片报告压缩失败，使用现有媒体失败降级流程，不静默发送未压缩原图。中转缓存保存处理后的图片，配置重新加载时清空，避免继续复用旧设置的结果。
+
+日志中的长 base64 内容显示为 `[base64 length=xxxx]`，不改变实际转发的数据。
 
 ## 已知限制
 

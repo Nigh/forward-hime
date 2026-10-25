@@ -214,7 +214,11 @@ export async function MessageForward(
 			return;
 		}
 
-		if (relayEnabled !== false && firstError instanceof MediaRelayError) {
+		if (
+			relayEnabled !== false &&
+			firstError instanceof MediaRelayError &&
+			firstError.allowDirectRetry
+		) {
 			logger.info(
 				`[MessageForward] relay failed, retrying without relay: ${node.Platform}`,
 			);

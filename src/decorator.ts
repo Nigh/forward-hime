@@ -188,20 +188,23 @@ export async function MsgDecoratorNoRelay(session: Session, node: ForwardNode) {
 }
 
 function defaultDecoratorFallback({head, content}: ForwardMsg, reason?: string) {
-	let msg: Element[] = [];
-	const newContent: Element[] = [];
+	function replaceMedia(elements: Element[]): Element[] {
+		return elements.map((element) => {
+			if (["img", "image", "audio", "video", "file"].includes(element.type)) {
+				return h("span", ` [${element.type}] `);
+			}
 
-	newContent.push(h("span", reason || defaultFallback));
-	for (const key in content) {
-		if (["img", "audio", "video", "file"].includes(content[key].type)) {
-			newContent.push(h("span", ` [${content[key].type}] `));
-		} else {
-			newContent.push(content[key]);
-		}
+			return element.children.length
+				? h(element.type, element.attrs, replaceMedia(element.children))
+				: element;
+		});
 	}
-	msg = msg.concat(head, newContent);
 
-	return msg;
+	return [
+		...replaceMedia(head),
+		h("span", reason || defaultFallback),
+		...replaceMedia(content),
+	];
 }
 export async function MsgDecoratorFallback(session: Session, node: ForwardNode) {
 	let elems = defaultMiddleware(session);

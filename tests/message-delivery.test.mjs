@@ -40,13 +40,17 @@ test("only falls back when failure occurs before sending", async () => {
 							contents: {
 								logger: "export const logger = {debug() {}, info() {}, warn() {}, error() {}}",
 								decorator: `
-								export const MsgDecorator = () => globalThis.decorationFails ? Promise.reject(new Error("decorate failed")) : Promise.resolve([]);
-								export const MsgDecoratorNoRelay = MsgDecorator;
-								export const MsgDecoratorFallback = () => Promise.resolve([]);
+								import {MediaRelayError} from "./relay";
+								export const MsgDecorator = () => {
+									if (globalThis.compressionFails) throw new MediaRelayError("compression failed", false);
+									return globalThis.decorationFails ? Promise.reject(new Error("decorate failed")) : Promise.resolve([]);
+								};
+								export const MsgDecoratorNoRelay = () => Promise.resolve(["uncompressed"]);
+								export const MsgDecoratorFallback = () => Promise.resolve(["degraded"]);
 								export const MsgDecoratorFallbackReason = MsgDecoratorFallback;
 							`,
 								cache: "export const msgCache = () => {}",
-								relay: "export class MediaRelayError extends Error {}",
+								relay: "export class MediaRelayError extends Error { constructor(message, allowDirectRetry = true) { super(message); this.allowDirectRetry = allowDirectRetry; } }",
 								diagnostics: `
 								export const createTraceId = () => "trace";
 								export const diagnosticFilename = () => undefined;
@@ -97,9 +101,21 @@ test("only falls back when failure occurs before sending", async () => {
 		await new Promise((resolve) => setImmediate(resolve));
 		assert.equal(sends, 2);
 		assert(events.some((event) => event.phase === "forward-degraded"));
+
+		globalThis.decorationFails = false;
+		globalThis.compressionFails = true;
+		const sentContent = [];
+		ctx.bots["kook:bot"].sendMessage = async (_channel, content) => {
+			sentContent.push(content);
+			return ["degraded-id"];
+		};
+		await MessageForward(ctx, node, session);
+		await new Promise((resolve) => setImmediate(resolve));
+		assert.deepEqual(sentContent, [["degraded"]]);
 	} finally {
 		delete globalThis.events;
 		delete globalThis.decorationFails;
+		delete globalThis.compressionFails;
 		await rm(workspace, {recursive: true, force: true});
 	}
 });

@@ -1,4 +1,5 @@
 import {Schema} from "koishi";
+import {ImageCompressionConfig} from "./image";
 
 export interface ForwardNode {
 	Platform: string;
@@ -18,6 +19,7 @@ export interface ConfigSet {
 		CacheMinutes: number;
 		RequestTimeoutSec: number;
 		MaxFileSizeMB: number;
+		ImageCompression?: ImageCompressionConfig;
 	};
 	ForwardTimeoutSec: number;
 	CacheTimeout: number;
@@ -46,7 +48,9 @@ export const createConfig = () =>
 				.description("默认Fallback消息前缀")
 				.default("[消息降级] "),
 			ForwardTimeoutSec: Schema.number()
-				.description("转发慢速告警阈值（秒）- 超过该时间仍等待发送结果，避免重复消息")
+				.description(
+					"转发慢速告警阈值（秒）- 超过该时间仍等待发送结果，避免重复消息",
+				)
 				.default(60)
 				.min(5)
 				.max(120),
@@ -61,7 +65,7 @@ export const createConfig = () =>
 					.max(180),
 				RequestTimeoutSec: Schema.number()
 					.description("媒体下载超时时间（秒）")
-				.default(30)
+					.default(30)
 					.min(3)
 					.max(120),
 				MaxFileSizeMB: Schema.number()
@@ -69,6 +73,21 @@ export const createConfig = () =>
 					.default(20)
 					.min(1)
 					.max(200),
+				ImageCompression: Schema.object({
+					Enabled: Schema.boolean()
+						.description(
+							"启用静态大图 JPEG 压缩（跳过 GIF 和动画，透明背景变白）",
+						)
+						.default(true),
+					InputSizeMB: Schema.number()
+						.description("图片超过此体积时压缩（MiB，1 MiB = 1024² 字节）")
+						.default(2)
+						.min(0.01),
+					TargetSizeMB: Schema.number()
+						.description("压缩后的最大体积（MiB，必要时缩小分辨率）")
+						.default(1)
+						.min(0.01),
+				}).description("图片压缩"),
 			}).description("媒体中转"),
 		}).description("转发格式"),
 		Schema.object({
