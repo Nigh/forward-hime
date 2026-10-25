@@ -9,12 +9,18 @@ import {
 	writeDiagnostic,
 } from "./diagnostics";
 import {ForwardNode} from "./config";
+import {
+	compressRelayImage,
+	DEFAULT_IMAGE_COMPRESSION,
+	ImageCompressionConfig,
+} from "./image";
 
 interface MediaRelayConfig {
 	Enabled: boolean;
 	CacheMinutes: number;
 	RequestTimeoutSec: number;
 	MaxFileSizeMB: number;
+	ImageCompression: ImageCompressionConfig;
 }
 
 interface RelayCacheItem {
@@ -35,22 +41,32 @@ let relayConfig: MediaRelayConfig = {
 	CacheMinutes: 10,
 	RequestTimeoutSec: 15,
 	MaxFileSizeMB: 20,
+	ImageCompression: {...DEFAULT_IMAGE_COMPRESSION},
 };
 
 const relayCache = new Map<string, RelayCacheItem>();
 
 export class MediaRelayError extends Error {
 	userMessage: string;
+	allowDirectRetry: boolean;
 
-	constructor(message: string, userMessage: string) {
+	constructor(message: string, userMessage: string, allowDirectRetry = true) {
 		super(message);
 		this.name = "MediaRelayError";
 		this.userMessage = userMessage;
+		this.allowDirectRetry = allowDirectRetry;
 	}
 }
 
 export function relayInit(ctx: Context, cfg: ConfigSet) {
-	relayConfig = cfg.MediaRelay;
+	relayConfig = {
+		...cfg.MediaRelay,
+		ImageCompression: {
+			...DEFAULT_IMAGE_COMPRESSION,
+			...cfg.MediaRelay.ImageCompression,
+		},
+	};
+	relayCache.clear();
 	ctx.on("http/file", (url, options) => {
 		const {filename, file} = options as {filename?: unknown; file?: unknown};
 
@@ -345,7 +361,7 @@ async function downloadAndRelay(
 	}
 
 	const arrayBuffer = await response.arrayBuffer();
-	const buffer = Buffer.from(arrayBuffer);
+	let buffer = Buffer.from(arrayBuffer);
 
 	if (buffer.length === 0) {
 		throw new MediaRelayError(
@@ -361,10 +377,26 @@ async function downloadAndRelay(
 	}
 
 	const responseMime = response.headers.get("content-type")?.split(";")[0].trim();
-	const mime =
+	let mime =
 		kind === "video" && (!responseMime || responseMime === DEFAULT_FILE_MIME)
 			? detectVideoMime(buffer) || DEFAULT_FILE_MIME
 			: responseMime || pickDefaultMime(kind);
+
+	if (kind === "img") {
+		try {
+			({buffer, mime} = await compressRelayImage(
+				buffer,
+				mime,
+				relayConfig.ImageCompression,
+			));
+		} catch {
+			throw new MediaRelayError(
+				"image compression failed",
+				"图片压缩失败，无法将图片压缩到目标大小。",
+				false,
+			);
+		}
+	}
 	const filename =
 		kind === "video"
 			? pickVideoFilename(element, src, mime)
@@ -409,7 +441,20 @@ export async function relayForwardContent(
 
 	for (const element of content) {
 		if (!isRelayMediaElement(element)) {
-			newContent.push(element);
+			newContent.push(
+				element.children?.length
+					? h(
+							element.type,
+							element.attrs,
+							await relayForwardContent(
+								element.children,
+								traceId,
+								session,
+								node,
+							),
+						)
+					: element,
+			);
 			continue;
 		}
 		const startedAt = Date.now();
@@ -431,6 +476,7 @@ export async function relayForwardContent(
 					target: node && {platform: node.Platform, node: node.Guild},
 				});
 			}
+			if (error instanceof MediaRelayError) throw error;
 			throw new MediaRelayError(
 				error instanceof Error ? error.message : "relay failed",
 				networkMessageFromError(error),
