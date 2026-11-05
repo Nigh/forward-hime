@@ -8,7 +8,7 @@ import {
 	msgCacheFindByUUID,
 } from "./cache";
 import {createConfig, ConfigSet} from "./config";
-import {MsgMiddlewareCache, decoratorInit} from "./decorator";
+import {MsgMiddlewareCache, decoratorInit, isForwardableMessage} from "./decorator";
 import {logger, loggerInit} from "./logger";
 import {consoleInit} from "./console";
 import {diagnosticsInit} from "./diagnostics";
@@ -42,6 +42,8 @@ export function apply(ctx: Context, cfg: ConfigSet) {
 	decoratorInit(ctx, cfg);
 
 	ctx.on("message-created", async (session) => {
+		if (!isForwardableMessage(session)) return;
+
 		const hitGroup = [];
 
 		for (const g in cfg.ForwardGroups) {
