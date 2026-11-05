@@ -155,6 +155,81 @@ export function defaultMiddleware(session: Session) {
 	return {head: head, content} as ForwardMsg;
 }
 
+// Filter before adding the forwarding prefix or writing message mappings.
+export function isForwardableMessage(session: Session): boolean {
+	const data = session.event?._data;
+
+	if (session.platform === "telegram") {
+		const message =
+			data?.message ??
+			data?.channel_post ??
+			data?.edited_message ??
+			data?.edited_channel_post;
+
+		// Telegram service messages share the ordinary message event. Accept user
+		// payloads rather than maintaining an ever-growing list of service fields.
+		if (
+			message &&
+			![
+				"text",
+				"animation",
+				"audio",
+				"document",
+				"paid_media",
+				"photo",
+				"sticker",
+				"story",
+				"video",
+				"video_note",
+				"voice",
+				"contact",
+				"dice",
+				"game",
+				"poll",
+				"venue",
+				"location",
+				"invoice",
+			].some((key) => message[key] != null)
+		) {
+			return false;
+		}
+	}
+	if (
+		session.platform === "discord" &&
+		data?.d?.type != null &&
+		![0, 19, 20, 23].includes(data.d.type)
+	) {
+		// Default, reply, chat input command, context menu command.
+		return false;
+	}
+
+	function hasContent(elements: Element[]): boolean {
+		return elements.some((element) => {
+			if (element.type === "text") return Boolean(element.attrs.content?.trim());
+			if (["quote", "br"].includes(element.type)) return false;
+			if (element.children.length) return hasContent(element.children);
+
+			return ![
+				"span",
+				"p",
+				"b",
+				"strong",
+				"i",
+				"em",
+				"u",
+				"s",
+				"del",
+				"code",
+				"pre",
+				"spl",
+				"a",
+			].includes(element.type);
+		});
+	}
+
+	return hasContent(defaultMiddleware(session).content);
+}
+
 const localDecorators = [atTranslator, quoteTranslator];
 
 const msgMiddleCache: FMsgCache[] = [];
