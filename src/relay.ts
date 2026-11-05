@@ -36,6 +36,8 @@ const DEFAULT_AUDIO_MIME = "audio/mpeg";
 const DEFAULT_VIDEO_MIME = "video/mp4";
 const DEFAULT_FILE_MIME = "application/octet-stream";
 
+let relayContext: Context;
+
 let relayConfig: MediaRelayConfig = {
 	Enabled: true,
 	CacheMinutes: 10,
@@ -59,6 +61,7 @@ export class MediaRelayError extends Error {
 }
 
 export function relayInit(ctx: Context, cfg: ConfigSet) {
+	relayContext = ctx;
 	relayConfig = {
 		...cfg.MediaRelay,
 		ImageCompression: {
@@ -266,6 +269,115 @@ function networkMessageFromError(error: unknown) {
 	return "网络问题：媒体文件暂时无法获取。";
 }
 
+interface ResolvedMedia {
+	data: ArrayBuffer;
+	type?: string;
+}
+
+async function resolveMediaFile(
+	element: Element,
+	session: Session | undefined,
+	maxBytes: number,
+): Promise<ResolvedMedia> {
+	const src = mediaUrlFromElement(element);
+	const timeout = relayConfig.RequestTimeoutSec * 1000;
+	const options = {...element.attrs, timeout};
+	const http = relayContext.http;
+	const bot = session?.bot as unknown as {
+		server?: string;
+		$getFile?: (path: string) => Promise<ResolvedMedia>;
+	};
+	let timer: NodeJS.Timeout | undefined;
+	const controller = new AbortController();
+	const task = async (): Promise<ResolvedMedia> => {
+		// Telegram's public proxy URL can point at an unreachable or misrouted selfUrl.
+		// Resolve its original file through the source bot, including local API mode.
+		if (session?.platform === "telegram" && bot?.server && bot.$getFile) {
+			const source = new URL(src);
+			const server = new URL(bot.server);
+			const prefix = `${server.pathname.replace(/\/$/, "")}/`;
+
+			if (source.origin === server.origin && source.pathname.startsWith(prefix)) {
+				return bot.$getFile(
+					decodeURIComponent(source.pathname.slice(prefix.length)),
+				);
+			}
+		}
+		const file = await relayContext.serial(http, "http/file", src, options);
+
+		if (file) return file;
+		if (src.startsWith("data:")) return http.file(src, options);
+
+		const response = await http(src, {
+			timeout,
+			signal: controller.signal,
+			validateStatus: () => true,
+			responseType: async (response) => {
+				checkMediaResponse(response);
+				const contentLength = Number(response.headers.get("content-length") || 0);
+
+				if (contentLength > maxBytes) {
+					throw new MediaRelayError(
+						`media too large: ${contentLength} > ${maxBytes}`,
+						`媒体文件过大（>${relayConfig.MaxFileSizeMB} MB），无法中转发送。`,
+					);
+				}
+
+				return response.arrayBuffer();
+			},
+		});
+
+		return {
+			data: response.data,
+			type: response.headers.get("content-type") || undefined,
+		};
+	};
+
+	try {
+		return await Promise.race([
+			task(),
+			new Promise<never>((_resolve, reject) => {
+				timer = setTimeout(() => {
+					const error = new Error("media download timeout");
+
+					controller.abort(error);
+					reject(error);
+				}, timeout);
+			}),
+		]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+function checkMediaResponse(response: Response) {
+	if (response.ok) return;
+	const code = response.status;
+
+	if (code === 401 || code === 403) {
+		throw new MediaRelayError(
+			`media source denied by status ${code}`,
+			"网络问题：媒体资源需要授权，当前中转节点无法访问。",
+		);
+	}
+	if (code === 404) {
+		throw new MediaRelayError(
+			"media source not found",
+			"媒体资源已失效或被删除，无法继续转发。",
+		);
+	}
+	if (code >= 500) {
+		throw new MediaRelayError(
+			`media source server error ${code}`,
+			"网络问题：媒体源站暂时不可用，请稍后重试。",
+		);
+	}
+	throw new MediaRelayError(
+		`media source response ${code}`,
+		"网络问题：媒体下载失败，请稍后重试。",
+	);
+}
+
 async function downloadAndRelay(
 	element: Element,
 	traceId?: string,
@@ -317,51 +429,9 @@ async function downloadAndRelay(
 		return relayElementFromCache(cacheItem, node?.Platform);
 	}
 
-	const timeoutSignal =
-		typeof AbortSignal.timeout === "function"
-			? AbortSignal.timeout(relayConfig.RequestTimeoutSec * 1000)
-			: undefined;
-	const response = await fetch(src, {signal: timeoutSignal});
-
-	if (!response.ok) {
-		const code = response.status;
-
-		if (code === 401 || code === 403) {
-			throw new MediaRelayError(
-				`media source denied by status ${code}`,
-				"网络问题：媒体资源需要授权，当前中转节点无法访问。",
-			);
-		}
-		if (code === 404) {
-			throw new MediaRelayError(
-				"media source not found",
-				"媒体资源已失效或被删除，无法继续转发。",
-			);
-		}
-		if (code >= 500) {
-			throw new MediaRelayError(
-				`media source server error ${code}`,
-				"网络问题：媒体源站暂时不可用，请稍后重试。",
-			);
-		}
-		throw new MediaRelayError(
-			`media source response ${code}`,
-			"网络问题：媒体下载失败，请稍后重试。",
-		);
-	}
-
 	const maxBytes = relayConfig.MaxFileSizeMB * 1024 * 1024;
-	const contentLength = Number(response.headers.get("content-length") || 0);
-
-	if (contentLength > maxBytes) {
-		throw new MediaRelayError(
-			`media too large: ${contentLength} > ${maxBytes}`,
-			`媒体文件过大（>${relayConfig.MaxFileSizeMB} MB），无法中转发送。`,
-		);
-	}
-
-	const arrayBuffer = await response.arrayBuffer();
-	let buffer = Buffer.from(arrayBuffer);
+	const file = await resolveMediaFile(element, session, maxBytes);
+	let buffer = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data);
 
 	if (buffer.length === 0) {
 		throw new MediaRelayError(
@@ -376,7 +446,20 @@ async function downloadAndRelay(
 		);
 	}
 
-	const responseMime = response.headers.get("content-type")?.split(";")[0].trim();
+	const responseMime = file.type?.split(";")[0].trim().toLowerCase();
+
+	if (
+		kind !== "file" &&
+		(responseMime === "text/html" ||
+			responseMime === "application/xhtml+xml" ||
+			/^\s*(?:<!doctype\s+html\b|<html\b)/i.test(buffer.toString("utf8", 0, 512)))
+	) {
+		throw new MediaRelayError(
+			"media source returned HTML instead of media",
+			"媒体链接返回了网页，无法获取原始媒体文件。",
+			false,
+		);
+	}
 	let mime =
 		kind === "video" && (!responseMime || responseMime === DEFAULT_FILE_MIME)
 			? detectVideoMime(buffer) || DEFAULT_FILE_MIME

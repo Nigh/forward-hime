@@ -27,33 +27,37 @@
 
 在插件配置中添加一个或多个 **互通转发组**。每个组包含若干 **转发节点**，节点字段：
 
-| 字段 | 说明 |
-|------|------|
+| 字段       | 说明                          |
+| ---------- | ----------------------------- |
 | `Platform` | 平台名（如 `onebot`、`kook`） |
-| `Guild` | 频道 / 群组 ID |
-| `BotID` | 本节点使用的机器人 ID |
-| `Note` | 互通组备注（可选） |
+| `Guild`    | 频道 / 群组 ID                |
+| `BotID`    | 本节点使用的机器人 ID         |
+| `Note`     | 互通组备注（可选）            |
 
 启用后：组内任一节点收到消息（且发送者不是配置的 Bot）时，消息会转发到**同组**其他节点。
 
 ### 转发格式与媒体
 
-| 配置项 | 默认 | 说明 |
-|--------|------|------|
-| `DefaultDecorator.Prefix` | `${username} 转发自 ${platform}：` | 转发头模板（`${…}` 取 Session 字段） |
-| `DefaultDecorator.Newline` | `true` | 前缀后是否换行 |
-| `DefaultFallbackMsgPrefix` | `[消息降级] ` | 媒体/内容降级时的文案前缀 |
-| `MediaRelay.Enabled` | `true` | 下载后再转发媒体 |
-| `MediaRelay.CacheMinutes` | `10` | 媒体暂存时间 |
-| `MediaRelay.RequestTimeoutSec` | `30` | 下载超时 |
-| `MediaRelay.MaxFileSizeMB` | `20` | 允许中转的最大体积 |
-| `MediaRelay.ImageCompression.Enabled` | `true` | 启用中转图片 JPEG 压缩 |
-| `MediaRelay.ImageCompression.InputSizeMB` | `2` | 图片超过此体积才压缩（MiB） |
-| `MediaRelay.ImageCompression.TargetSizeMB` | `1` | 压缩后 JPEG 的最大体积（MiB） |
-| `ForwardTimeoutSec` | `60` | 慢转发告警阈值（秒）；仍等待结果，避免重复发送 |
-| `CacheTimeout` | `120` | 消息映射缓存（分钟，≥120）；影响删除 / 引用 |
+| 配置项                                     | 默认                               | 说明                                           |
+| ------------------------------------------ | ---------------------------------- | ---------------------------------------------- |
+| `DefaultDecorator.Prefix`                  | `${username} 转发自 ${platform}：` | 转发头模板（`${…}` 取 Session 字段）           |
+| `DefaultDecorator.Newline`                 | `true`                             | 前缀后是否换行                                 |
+| `DefaultFallbackMsgPrefix`                 | `[消息降级] `                      | 媒体/内容降级时的文案前缀                      |
+| `MediaRelay.Enabled`                       | `true`                             | 下载后再转发媒体                               |
+| `MediaRelay.CacheMinutes`                  | `10`                               | 媒体暂存时间                                   |
+| `MediaRelay.RequestTimeoutSec`             | `30`                               | 下载超时                                       |
+| `MediaRelay.MaxFileSizeMB`                 | `20`                               | 允许中转的最大体积                             |
+| `MediaRelay.ImageCompression.Enabled`      | `true`                             | 启用中转图片 JPEG 压缩                         |
+| `MediaRelay.ImageCompression.InputSizeMB`  | `2`                                | 图片超过此体积才压缩（MiB）                    |
+| `MediaRelay.ImageCompression.TargetSizeMB` | `1`                                | 压缩后 JPEG 的最大体积（MiB）                  |
+| `ForwardTimeoutSec`                        | `60`                               | 慢转发告警阈值（秒）；仍等待结果，避免重复发送 |
+| `CacheTimeout`                             | `120`                              | 消息映射缓存（分钟，≥120）；影响删除 / 引用    |
 
 平台侧有额外处理（如 onebot 的 at / 表情 / 合并转发，kook 无图时补透明图）；通用路径走默认装饰器。
+
+Discord 原生 forward 消息提取快照中的正文和媒体附件，不携带原始频道、作者或来源引用等跨平台元数据。
+
+Telegram 媒体中转通过源机器人的文件接口解析旧版代理链接，并支持 Koishi 的内部文件路由。无需通过公开的 `selfUrl` 下载这些文件，避免代理路径落到控制台页面。图片、音频或视频链接返回 HTML 时会报告失败并降级，不再把网页作为媒体发送，也不重试同一个坏链接；作为文件上传的 HTML 附件不受影响。
 
 图片压缩配置位于 WebUI 的「媒体中转 / 图片压缩」。旧配置缺少这些字段时仍使用默认值：启用媒体中转后，超过 **2 MiB** 的图片转为不超过 **1 MiB** 的 JPEG（1 MiB = 1024 × 1024 字节）。远程链接和 data URL 图片均经过同一处理，嵌套内容中的图片也适用；未超过门限、关闭图片压缩或关闭媒体中转时不转换。文件、视频和音频不受图片压缩影响。
 

@@ -42,6 +42,94 @@ export function defaultDecorator({head, content}: ForwardMsg) {
 	return msg;
 }
 
+interface DiscordSnapshot {
+	content?: string;
+	attachments?: {
+		url: string;
+		proxy_url?: string;
+		filename: string;
+		content_type?: string;
+		width?: number;
+		height?: number;
+		size?: number;
+	}[];
+	embeds?: {
+		image?: {url: string; proxy_url?: string};
+		thumbnail?: {url: string; proxy_url?: string};
+		video?: {url: string; proxy_url?: string};
+	}[];
+	sticker_items?: {id: string; name: string; format_type: number}[];
+}
+
+function discordForwardMessage(session: Session) {
+	if (session.platform !== "discord") return;
+	// The adapter keeps the gateway payload here but does not decode snapshots.
+	const data = session.event?._data?.d as
+		| {
+				message_reference?: {type?: number};
+				message_snapshots?: {message: DiscordSnapshot}[];
+		  }
+		| undefined;
+
+	return data?.message_reference?.type === 1 ? data : undefined;
+}
+
+function discordSnapshotContent(message: DiscordSnapshot): Element[] {
+	const content: Element[] = [];
+
+	if (message.content) content.push(h.text(message.content));
+	for (const attachment of message.attachments ?? []) {
+		const type = attachment.content_type;
+		const visual = attachment.width && attachment.height;
+		const element =
+			visual && type?.startsWith("image/")
+				? "img"
+				: visual && type?.startsWith("video/")
+					? "video"
+					: type?.startsWith("audio/")
+						? "audio"
+						: "file";
+
+		content.push(
+			h(element, {
+				src: attachment.url,
+				proxy_url: attachment.proxy_url,
+				file: attachment.filename,
+				type,
+				width: attachment.width,
+				height: attachment.height,
+				size: attachment.size,
+			}),
+		);
+	}
+	for (const embed of message.embeds ?? []) {
+		for (const media of [embed.image, embed.thumbnail]) {
+			if (media) {
+				content.push(h.image(media.url, {proxy_url: media.proxy_url}));
+			}
+		}
+		if (embed.video) {
+			content.push(
+				h("video", {
+					src: embed.video.url,
+					proxy_url: embed.video.proxy_url,
+				}),
+			);
+		}
+	}
+	for (const sticker of message.sticker_items ?? []) {
+		content.push(
+			h("sticker", sticker, [
+				h.image(
+					`https://media.discordapp.net/stickers/${sticker.id}.webp?size=160`,
+				),
+			]),
+		);
+	}
+
+	return content;
+}
+
 export function defaultMiddleware(session: Session) {
 	const head: Element[] = [h("span", renderTemplate(defaultPrefix, session))];
 
@@ -51,11 +139,17 @@ export function defaultMiddleware(session: Session) {
 
 	const content =
 		session.platform === "discord"
-			? session.elements.map((element) =>
-					element.type === "record"
-						? h("audio", element.attrs, element.children)
-						: element,
-				)
+			? session.elements
+					.concat(
+						(discordForwardMessage(session)?.message_snapshots ?? []).flatMap(
+							(snapshot) => discordSnapshotContent(snapshot.message),
+						),
+					)
+					.map((element) =>
+						element.type === "record"
+							? h("audio", element.attrs, element.children)
+							: element,
+					)
 			: session.elements;
 
 	return {head: head, content} as ForwardMsg;
@@ -263,7 +357,7 @@ async function quoteTranslator(
 	node: ForwardNode,
 	{head, content}: ForwardMsg,
 ) {
-	if (!session.quote || !session.quote.id) {
+	if (discordForwardMessage(session) || !session.quote || !session.quote.id) {
 		return {head: head, content: content} as ForwardMsg;
 	}
 	const key = session.channelId + ":" + session.quote.id;
