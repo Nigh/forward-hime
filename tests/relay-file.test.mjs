@@ -7,12 +7,14 @@ import {test} from "node:test";
 
 import {build} from "esbuild";
 
-const {h} = createRequire(import.meta.url)("koishi");
+const {Context, HTTP, h} = createRequire(import.meta.url)("koishi");
 
 test("file relay keeps names and uses Discord's attachment path", async () => {
 	const workspace = await mkdtemp(join(process.cwd(), ".test-relay-"));
 	const bundle = join(workspace, "relay.cjs");
 	const originalFetch = globalThis.fetch;
+	const context = new Context();
+	context.plugin(HTTP);
 
 	try {
 		await build({
@@ -24,9 +26,8 @@ test("file relay keeps names and uses Discord's attachment path", async () => {
 			outfile: bundle,
 		});
 		const {relayForwardContent, relayInit} = await import(pathToFileURL(bundle));
-		let fileHandler;
 		relayInit(
-			{on: (_event, handler) => (fileHandler = handler)},
+			context,
 			{
 				MediaRelay: {
 					Enabled: true,
@@ -72,7 +73,7 @@ test("file relay keeps names and uses Discord's attachment path", async () => {
 		assert.equal(onebotFile.attrs.file, "Discord-QQ椅子.stl");
 		assert.equal(onebotFile.attrs.filename, "Discord-QQ椅子.stl");
 		assert.equal(onebotFile.attrs.title, "Discord-QQ椅子.stl");
-		const telegramFile = fileHandler(onebotFile.attrs.src, onebotFile.attrs);
+		const telegramFile = await context.http.file(onebotFile.attrs.src, onebotFile.attrs);
 		assert.equal(telegramFile.filename, "Discord-QQ椅子.stl");
 		assert.equal(Buffer.from(telegramFile.data).toString(), "solid test");
 
@@ -159,6 +160,7 @@ test("file relay keeps names and uses Discord's attachment path", async () => {
 		}
 	} finally {
 		globalThis.fetch = originalFetch;
+		await context.stop();
 		await rm(workspace, {recursive: true, force: true});
 	}
 });

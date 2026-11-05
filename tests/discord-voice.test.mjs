@@ -7,11 +7,13 @@ import {test} from "node:test";
 
 import {build} from "esbuild";
 
-const {h} = createRequire(import.meta.url)("koishi");
+const {Context, HTTP, h} = createRequire(import.meta.url)("koishi");
 
 test("Discord and OneBot voice messages use the right outgoing elements", async () => {
 	const workspace = await mkdtemp(join(process.cwd(), ".test-voice-"));
 	const bundle = join(workspace, "decorator.cjs");
+	const context = new Context();
+	context.plugin(HTTP);
 
 	try {
 		await build({
@@ -22,9 +24,18 @@ test("Discord and OneBot voice messages use the right outgoing elements", async 
 			packages: "external",
 			outfile: bundle,
 		});
-		const {defaultMiddleware, MsgDecorator, MsgDecoratorNoRelay} = await import(
-			pathToFileURL(bundle)
-		);
+		const {decoratorInit, defaultMiddleware, MsgDecorator, MsgDecoratorNoRelay} =
+			await import(pathToFileURL(bundle));
+		decoratorInit(context, {
+			DefaultDecorator: {Prefix: "", Newline: true},
+			DefaultFallbackMsgPrefix: "",
+			MediaRelay: {
+				Enabled: true,
+				CacheMinutes: 10,
+				RequestTimeoutSec: 15,
+				MaxFileSizeMB: 20,
+			},
+		});
 		const record = h("record", {
 			src: "https://cdn.discordapp.com/voice.ogg",
 			type: "audio/ogg",
@@ -85,6 +96,7 @@ test("Discord and OneBot voice messages use the right outgoing elements", async 
 
 		assert.equal(otherPlatform.at(-1).type, "audio");
 	} finally {
+		await context.stop();
 		await rm(workspace, {recursive: true, force: true});
 	}
 });

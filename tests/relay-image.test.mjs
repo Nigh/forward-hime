@@ -9,7 +9,7 @@ import {pathToFileURL} from "node:url";
 import {build} from "esbuild";
 import sharp from "sharp";
 
-const {h} = createRequire(import.meta.url)("koishi");
+const {Context, HTTP, h} = createRequire(import.meta.url)("koishi");
 const MiB = 1024 * 1024;
 
 function payload(element) {
@@ -19,6 +19,8 @@ function payload(element) {
 test("image relay enforces JPEG targets, defaults, cache and failure semantics", async () => {
 	const workspace = await mkdtemp(join(process.cwd(), ".test-image-"));
 	const originalFetch = globalThis.fetch;
+	const context = new Context();
+	context.plugin(HTTP);
 
 	try {
 		const bundle = join(workspace, "relay.cjs");
@@ -35,7 +37,7 @@ test("image relay enforces JPEG targets, defaults, cache and failure semantics",
 		);
 		const initialize = (ImageCompression) =>
 			relayInit(
-				{on() {}},
+				context,
 				{
 					MediaRelay: {
 						Enabled: true,
@@ -81,7 +83,7 @@ test("image relay enforces JPEG targets, defaults, cache and failure semantics",
 		const [atThreshold] = await relayForwardContent([incoming]);
 		assert.deepEqual(payload(atThreshold), image);
 
-		// Native fetch covers data URLs too, including nested image elements.
+		// Koishi's file resolver covers data URLs, including nested images.
 		globalThis.fetch = originalFetch;
 		initialize({TargetSizeMB: 0.03});
 		const [nested] = await relayForwardContent([
@@ -185,6 +187,7 @@ test("image relay enforces JPEG targets, defaults, cache and failure semantics",
 		assert.equal(original.children[1].type, "image");
 	} finally {
 		globalThis.fetch = originalFetch;
+		await context.stop();
 		await rm(workspace, {recursive: true, force: true});
 	}
 });
