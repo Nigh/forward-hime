@@ -130,6 +130,31 @@ function discordSnapshotContent(message: DiscordSnapshot): Element[] {
 	return content;
 }
 
+// QQ text has no Markdown semantics. Preserve URLs as link destinations so
+// destination adapters do not escape their underscores, asterisks, or brackets.
+function onebotLinks(elements: Element[]): Element[] {
+	return h.transform(elements, (element) => {
+		if (element.type !== "text") {
+			return element.type === "a" || !element.children.length ? element : true;
+		}
+		const {content} = element.attrs;
+		const result: Element[] = [];
+		let offset = 0;
+
+		for (const match of content.matchAll(/https?:\/\/[^\s<>"，。！？；：、]+/gi)) {
+			const url = match[0].replace(/[.,!?;:]+$/, "");
+
+			if (url.length <= url.indexOf("://") + 3) continue;
+			result.push(h.text(content.slice(offset, match.index)));
+			result.push(h("a", {href: url}, h.text(url)));
+			offset = match.index + url.length;
+		}
+		result.push(h.text(content.slice(offset)));
+
+		return result;
+	});
+}
+
 export function defaultMiddleware(session: Session) {
 	const head: Element[] = [h("span", renderTemplate(defaultPrefix, session))];
 
@@ -152,7 +177,10 @@ export function defaultMiddleware(session: Session) {
 					)
 			: session.elements;
 
-	return {head: head, content} as ForwardMsg;
+	return {
+		head,
+		content: session.platform === "onebot" ? onebotLinks(content) : content,
+	} as ForwardMsg;
 }
 
 // Filter before adding the forwarding prefix or writing message mappings.

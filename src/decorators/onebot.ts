@@ -46,10 +46,9 @@ function getNameFromQQat(elem: Element) {
 
 function Middleware(session: Session) {
 	const platform = guessPlatform(session);
-	const sessionTemp = session;
-
-	sessionTemp.platform = platform;
-	const head: Element[] = defaultMiddleware(sessionTemp).head;
+	const head: Element[] = defaultMiddleware(
+		Object.create(session, {platform: {value: platform}}),
+	).head;
 	const newContent: Element[] = [];
 
 	if (platform === "QQ") {
@@ -76,10 +75,15 @@ function Middleware(session: Session) {
 			}
 		}
 
-		return {head: head, content: newContent};
+		return {
+			head,
+			content: defaultMiddleware(
+				Object.create(session, {elements: {value: newContent}}),
+			).content,
+		};
 	}
 
-	return {head: head, content: session.elements};
+	return {head, content: defaultMiddleware(session).content};
 }
 
 function guessPlatform(session: Session) {
