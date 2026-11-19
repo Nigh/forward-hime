@@ -258,7 +258,7 @@ export function isForwardableMessage(session: Session): boolean {
 	return hasContent(defaultMiddleware(session).content);
 }
 
-const localDecorators = [atTranslator, quoteTranslator];
+const localDecorators = [atTranslator, quoteTranslator, onebotLinkTranslator];
 
 const msgMiddleCache: FMsgCache[] = [];
 
@@ -425,6 +425,34 @@ export async function MsgDecoratorFallbackReason(
 	}
 
 	return defaultDecoratorFallback(elems, reason);
+}
+
+function onebotLinkTranslator(
+	session: Session,
+	node: ForwardNode,
+	{head, content}: ForwardMsg,
+): ForwardMsg {
+	if (session.platform !== "onebot" || node.Platform !== "discord") {
+		return {head, content};
+	}
+
+	return {
+		head,
+		// Discord rejects masked links whose label is itself a URL.
+		// Keep the destination untouched and use a non-URL label.
+		content: h.transform(content, (element) => {
+			if (element.type !== "a") return true;
+			if (
+				element.children.length !== 1 ||
+				element.children[0].type !== "text" ||
+				element.children[0].attrs.content !== element.attrs.href
+			) {
+				return element;
+			}
+
+			return h("a", element.attrs, "打开链接");
+		}),
+	};
 }
 
 async function atTranslator(
