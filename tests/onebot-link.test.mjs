@@ -9,7 +9,7 @@ import {build} from "esbuild";
 
 const {Context, h} = createRequire(import.meta.url)("koishi");
 
-test("OneBot URLs retain literal destinations across forwarding paths", async () => {
+test("OneBot URLs retain literal addresses across forwarding paths", async () => {
 	const workspace = await mkdtemp(join(process.cwd(), ".test-links-"));
 	const bundle = join(workspace, "decorator.cjs");
 	const context = new Context();
@@ -29,10 +29,11 @@ test("OneBot URLs retain literal destinations across forwarding paths", async ()
 			MediaRelay: {Enabled: false},
 		});
 		const urls = [
+			"https://github.com/Nigh/TCS3200-sensor-kit",
 			"https://example.test/a_b?q=x*y&next=%2Ffoo#part_1",
 			"http://example.test/a_(b)",
 		];
-		const text = `链接：${urls[0]}，另一个 ${urls[1]}。普通 *文本* <tag>`;
+		const text = `链接：${urls[0]}，另一个 ${urls[1]}，括号 ${urls[2]}。普通 *文本* <tag>`;
 		for (const avatar of ["", "https://q.qlogo.cn/avatar"]) {
 			const session = {
 				platform: "onebot",
@@ -44,7 +45,7 @@ test("OneBot URLs retain literal destinations across forwarding paths", async ()
 				elements: [h.text(text)],
 			};
 			await api.MsgMiddlewareCache(session);
-			for (const Platform of ["discord", "telegram", "onebot"]) {
+			for (const Platform of ["discord", "telegram", "kook", "onebot"]) {
 				for (const method of [
 					"MsgDecorator",
 					"MsgDecoratorNoRelay",
@@ -63,7 +64,7 @@ test("OneBot URLs retain literal destinations across forwarding paths", async ()
 					);
 					assert.deepEqual(
 						links.map((link) => link.children[0].attrs.content),
-						urls,
+						Platform === "discord" ? urls.map(() => "打开链接") : urls,
 					);
 					assert.equal(
 						output
